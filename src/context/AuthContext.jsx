@@ -2,8 +2,8 @@ import { createContext, useContext, useMemo, useState } from 'react'
 import Cookies from 'js-cookie'
 
 const TOKEN_KEYS = {
-  access: 'access_token',
-  refresh: 'refresh_token',
+  access: 'code_sage_access_token',
+  refresh: 'code_sage_refresh_token',
 }
 
 const AuthContext = createContext(null)

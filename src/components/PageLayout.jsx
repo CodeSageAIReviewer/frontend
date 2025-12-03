@@ -18,9 +18,7 @@ function PageLayout({ children }) {
 
   const authLabel = isAuthenticated ? 'Выйти' : 'Войти'
   const showNavbar = location.pathname !== '/auth'
-  const contentClass = showNavbar
-    ? 'page-content page-content--with-navbar'
-    : 'page-content page-content--standalone'
+  const contentClass = 'page-content'
 
   return (
     <div className="page-layout">
@@ -29,9 +27,14 @@ function PageLayout({ children }) {
           <div className="site-brand">
             <Link to="/landing">CodeSage AI Reviewer</Link>
           </div>
-          <button type="button" className="nav-button" onClick={handleAuthAction}>
-            {authLabel}
-          </button>
+          <div className="site-navbar__actions">
+            <Link to="/workspace" className="nav-link-button">
+              Workspace
+            </Link>
+            <button type="button" className="nav-button" onClick={handleAuthAction}>
+              {authLabel}
+            </button>
+          </div>
         </nav>
       )}
       <div className={contentClass}>{children}</div>
