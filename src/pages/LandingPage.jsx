@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import './LandingPage.css'
 
@@ -16,18 +15,7 @@ const highlights = [
 ]
 
 function LandingPage() {
-  const { isAuthenticated, logout } = useAuth()
-  const navigate = useNavigate()
-
-  const actionLabel = isAuthenticated ? 'Выйти' : 'Войти'
-  const handleAction = () => {
-    if (isAuthenticated) {
-      logout()
-      navigate('/auth')
-      return
-    }
-    navigate('/auth')
-  }
+  const { isAuthenticated } = useAuth()
 
   const readyText = useMemo(
     () =>
@@ -49,9 +37,6 @@ function LandingPage() {
               рекомендации ИИ в едином потоке.
             </p>
           </div>
-          <button className="text-button" onClick={handleAction}>
-            {actionLabel}
-          </button>
         </header>
         <p className="landing-ready">{readyText}</p>
         <div className="landing-story">

@@ -1,0 +1,63 @@
+.page-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.site-navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: clamp(1rem, 2vw, 1.5rem) clamp(1.5rem, 4vw, 3rem);
+  background: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 12px 25px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(8px);
+  position: relative;
+}
+
+.site-brand a {
+  color: #0f172a;
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.site-navbar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.04), rgba(59, 130, 246, 0));
+}
+
+.nav-button {
+  padding: 0.65rem 1.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.nav-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.page-content {
+  flex: 1;
+  width: 100%;
+  padding: clamp(1.5rem, 3vw, 3.5rem);
+}
+
+.page-content--with-navbar {
+  margin-top: clamp(2rem, 4vw, 3.25rem);
+}
+
+.page-content--standalone {
+  margin-top: clamp(0.5rem, 1.2vw, 1rem);
+}
