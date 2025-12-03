@@ -1,8 +1,11 @@
 .auth-page {
   width: 100%;
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  background: radial-gradient(circle at top, #e0f2fe 0%, #f8fafc 40%, #ffffff 100%);
 }
 
 .auth-card {

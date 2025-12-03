@@ -28,9 +28,11 @@ function PageLayout({ children }) {
             <Link to="/landing">CodeSage</Link>
           </div>
           <div className="site-navbar__actions">
-            <Link to="/workspace" className="nav-link-button">
-              Workspace
-            </Link>
+            {isAuthenticated && (
+              <Link to="/workspace" className="nav-link-button">
+                Workspace
+              </Link>
+            )}
             <button type="button" className="nav-button" onClick={handleAuthAction}>
               {authLabel}
             </button>

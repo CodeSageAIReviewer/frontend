@@ -70,8 +70,10 @@ function AuthPage() {
 
       const handler = mode === 'signup' ? signUp : signIn
       const response = await handler(payload)
-      if (response?.data) {
-        login(response.data)
+      const tokens = response?.data ?? response
+      console.log('Auth response tokens:', tokens)
+      if (tokens) {
+        login(tokens)
       }
       setSuccessMessage('Запрос успешен. Токены будут сохранены в cookies.')
       navigate('/landing')

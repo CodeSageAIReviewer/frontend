@@ -1,16 +1,12 @@
 import { createContext, useContext, useMemo, useState } from 'react'
 import Cookies from 'js-cookie'
-
-const TOKEN_KEYS = {
-  access: 'code_sage_access_token',
-  refresh: 'code_sage_refresh_token',
-}
+import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from '../constants/tokenKeys'
 
 const AuthContext = createContext(null)
 
 const getTokensFromCookies = () => ({
-  access_token: Cookies.get(TOKEN_KEYS.access) ?? '',
-  refresh_token: Cookies.get(TOKEN_KEYS.refresh) ?? '',
+  access_token: Cookies.get(ACCESS_TOKEN_KEY) ?? '',
+  refresh_token: Cookies.get(REFRESH_TOKEN_KEY) ?? '',
 })
 
 const tokenAttributes = {
@@ -51,14 +47,14 @@ export const AuthProvider = ({ children }) => {
 
   const login = (payload) => {
     const normalized = normalizeTokens(payload)
-    persistToken(TOKEN_KEYS.access, normalized.access_token)
-    persistToken(TOKEN_KEYS.refresh, normalized.refresh_token)
+    persistToken(ACCESS_TOKEN_KEY, normalized.access_token)
+    persistToken(REFRESH_TOKEN_KEY, normalized.refresh_token)
     setTokens(normalized)
   }
 
   const logout = () => {
-    Cookies.remove(TOKEN_KEYS.access)
-    Cookies.remove(TOKEN_KEYS.refresh)
+    Cookies.remove(ACCESS_TOKEN_KEY)
+    Cookies.remove(REFRESH_TOKEN_KEY)
     setTokens({ access_token: '', refresh_token: '' })
   }
 

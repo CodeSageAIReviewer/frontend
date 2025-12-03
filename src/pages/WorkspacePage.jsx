@@ -17,8 +17,7 @@ function WorkspacePage() {
 
   const fetchWorkspaces = useCallback(async () => {
     try {
-      const response = await listWorkspaces()
-      const data = response?.data ?? []
+      const data = (await listWorkspaces()) ?? []
       setWorkspaces(data)
       setSelectedWorkspaceId((prev) => prev ?? data?.[0]?.id ?? null)
     } catch (error) {
@@ -40,8 +39,7 @@ function WorkspacePage() {
     setIsSubmitting(true)
     setFormError('')
     try {
-      const response = await createWorkspace({ name: newWorkspaceName.trim() })
-      const createdWorkspace = response?.data
+      const createdWorkspace = await createWorkspace({ name: newWorkspaceName.trim() })
       await fetchWorkspaces()
       setSelectedWorkspaceId(createdWorkspace.id ?? null)
       setCreatingWorkspace(false)
