@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { signIn, signUp } from '../services/authClient'
+import { useAuth } from '../context/AuthContext'
 import './AuthPage.css'
 
 const initialForm = { username: '', password: '', password2: '' }
@@ -23,6 +25,9 @@ function AuthPage() {
   const [errors, setErrors] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
+
+  const navigate = useNavigate()
+  const { login } = useAuth()
 
   const toggleMode = () => {
     const nextMode = mode === 'signin' ? 'signup' : 'signin'
@@ -64,8 +69,12 @@ function AuthPage() {
             }
 
       const handler = mode === 'signup' ? signUp : signIn
-      await handler(payload)
+      const response = await handler(payload)
+      if (response?.data) {
+        login(response.data)
+      }
       setSuccessMessage('Запрос успешен. Токены будут сохранены в cookies.')
+      navigate('/landing')
     } catch (error) {
       if (error.response?.data) {
         setErrors(error.response.data)
@@ -83,7 +92,7 @@ function AuthPage() {
         <h1>{currentMode.title}</h1>
         <form className="auth-form" onSubmit={handleSubmit}>
           <label>
-            <span>Username</span>
+            <span>Имя пользователя</span>
             <input
               name="username"
               value={form.username}
@@ -93,7 +102,7 @@ function AuthPage() {
             />
           </label>
           <label>
-            <span>Password</span>
+            <span>Пароль</span>
             <input
               name="password"
               type="password"
@@ -105,7 +114,7 @@ function AuthPage() {
           </label>
           {mode === 'signup' && (
             <label>
-              <span>Confirm password</span>
+              <span>Повторите пароль</span>
               <input
                 name="password2"
                 type="password"
