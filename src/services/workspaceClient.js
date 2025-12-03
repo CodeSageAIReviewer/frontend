@@ -26,3 +26,5 @@ export const deleteIntegration = (workspaceId, integrationId) =>
   apiRequest.delete(
     `/workspace/${workspaceId}/integrations/${integrationId}/delete/`,
   )
+export const deleteRepository = (workspaceId, repositoryId) =>
+  apiRequest.delete(`/workspace/${workspaceId}/repositories/${repositoryId}/delete/`)

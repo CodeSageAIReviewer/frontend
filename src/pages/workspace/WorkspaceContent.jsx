@@ -18,6 +18,7 @@ function WorkspaceContent({
   activeIntegration,
   onIntegrationSettings,
   onIntegrationDelete,
+  onRepositoryDelete,
 }) {
   return (
     <section className="workspace-content">
@@ -90,6 +91,21 @@ function WorkspaceContent({
                         Удалить интеграцию
                       </button>
                     )}
+                  {canEditWorkspace &&
+                    activeNode?.type === 'repository' &&
+                    activeIntegration &&
+                    activeNode.repository &&
+                    onRepositoryDelete && (
+                      <button
+                        type="button"
+                        className="workspace-panel__delete workspace-panel__delete--integration"
+                        onClick={() =>
+                          onRepositoryDelete(activeIntegration, activeNode.repository)
+                        }
+                      >
+                        Удалить репозиторий
+                      </button>
+                    )}
                   {canDeleteWorkspace &&
                     activeNode?.type === 'workspace' && (
                       <button
@@ -101,18 +117,20 @@ function WorkspaceContent({
                       </button>
                     )}
                 </div>
-                <div className="workspace-panel__grid">
-                  <article className="workspace-card">
-                    <p className="workspace-card__label">Собственник</p>
-                    <p className="workspace-card__value">ID {selectedWorkspace.owner_id}</p>
-                  </article>
-                  <article className="workspace-card">
-                    <p className="workspace-card__label">Дата создания</p>
-                    <p className="workspace-card__value">
-                      {new Date(selectedWorkspace.created_at).toLocaleString('ru-RU')}
-                    </p>
-                  </article>
-                </div>
+                {activeNode?.type === 'workspace' && (
+                  <div className="workspace-panel__grid">
+                    <article className="workspace-card">
+                      <p className="workspace-card__label">Собственник</p>
+                      <p className="workspace-card__value">ID {selectedWorkspace.owner_id}</p>
+                    </article>
+                    <article className="workspace-card">
+                      <p className="workspace-card__label">Дата создания</p>
+                      <p className="workspace-card__value">
+                        {new Date(selectedWorkspace.created_at).toLocaleString('ru-RU')}
+                      </p>
+                    </article>
+                  </div>
+                )}
               </>
             )}
           </div>

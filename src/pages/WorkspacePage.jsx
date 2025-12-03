@@ -4,6 +4,7 @@ import {
   createIntegration,
   createWorkspace,
   deleteIntegration,
+  deleteRepository,
   deleteWorkspace,
   listAvailableRepositories,
   listIntegrations,
@@ -53,6 +54,10 @@ function WorkspacePage() {
   const [integrationDeleteTarget, setIntegrationDeleteTarget] = useState(null)
   const [integrationDeleteError, setIntegrationDeleteError] = useState('')
   const [isDeletingIntegration, setIsDeletingIntegration] = useState(false)
+  const [isRepositoryDeleteModalOpen, setIsRepositoryDeleteModalOpen] = useState(false)
+  const [repositoryDeleteTarget, setRepositoryDeleteTarget] = useState(null)
+  const [repositoryDeleteError, setRepositoryDeleteError] = useState('')
+  const [isDeletingRepository, setIsDeletingRepository] = useState(false)
   const [activeNode, setActiveNode] = useState({ type: 'workspace', id: null, workspaceId: null, label: '' })
   const [openIntegrations, setOpenIntegrations] = useState({})
   const [openRepos, setOpenRepos] = useState({})
@@ -80,10 +85,17 @@ function WorkspacePage() {
   )
 
   const activeIntegration = useMemo(() => {
-    if (activeNode.type !== 'integration') {
+    if (!activeNode) {
       return null
     }
-    return integrations.find((integration) => integration.id === activeNode.id) ?? null
+    if (activeNode.type === 'integration') {
+      return integrations.find((integration) => integration.id === activeNode.id) ?? null
+    }
+    if (activeNode.type === 'repository') {
+      const [integrationId] = `${activeNode.id}`.split('-')
+      return integrations.find((integration) => `${integration.id}` === integrationId) ?? null
+    }
+    return null
   }, [activeNode, integrations])
 
   const canDeleteWorkspace = useMemo(() => {
@@ -301,6 +313,8 @@ function WorkspacePage() {
       parent: integration.name,
       workspace: workspace.name,
       workspaceId: workspace.id,
+      repository: repo,
+      integrationId: integration.id,
     })
   }
 
@@ -530,6 +544,62 @@ function WorkspacePage() {
     }
   }
 
+  const handleOpenRepositoryDelete = (integration, repo) => {
+    if (!canEditWorkspace) {
+      return
+    }
+    setRepositoryDeleteTarget({ integration, repo })
+    setRepositoryDeleteError('')
+    setIsRepositoryDeleteModalOpen(true)
+  }
+
+  const handleCloseRepositoryDelete = () => {
+    setIsRepositoryDeleteModalOpen(false)
+    setRepositoryDeleteTarget(null)
+    setRepositoryDeleteError('')
+  }
+
+  const handleConfirmRepositoryDelete = async () => {
+    if (!selectedWorkspaceId || !repositoryDeleteTarget || !canEditWorkspace) {
+      return
+    }
+
+    const { integration, repo } = repositoryDeleteTarget
+    if (!repo || !repo.id || !integration || !integration.id) {
+      setRepositoryDeleteError('Информация о репозитории или интеграции недоступна.')
+      return
+    }
+
+    setIsDeletingRepository(true)
+    setRepositoryDeleteError('')
+
+    try {
+      await deleteRepository(selectedWorkspaceId, repo.id)
+      await fetchSavedRepositories(selectedWorkspaceId)
+      setActiveNode((prev) => {
+        const targetRepoId = repo.external_id ?? repo.id
+        if (
+          prev.type === 'repository' &&
+          prev.id === `${integration.id}-${targetRepoId}`
+        ) {
+          return {
+            type: 'integration',
+            id: integration.id,
+            label: integration.name,
+            workspaceId: selectedWorkspaceId,
+          }
+        }
+        return prev
+      })
+      setIsRepositoryDeleteModalOpen(false)
+      setRepositoryDeleteTarget(null)
+    } catch (error) {
+      setRepositoryDeleteError(error.message ?? 'Не удалось удалить репозиторий.')
+    } finally {
+      setIsDeletingRepository(false)
+    }
+  }
+
   const handleOpenRepositoryModal = (workspace, integration) => {
     handleIntegrationSelect(workspace, integration)
     setRepoModalState({ isOpen: true, integration })
@@ -611,14 +681,14 @@ function WorkspacePage() {
       return {
         title: activeNode.label,
         subtitle: `Integration under ${selectedWorkspace?.name ?? 'workspace'}`,
-        body: 'Здесь будут синхронизационные настройки, метрики и документация для интеграции.',
+        body: '',
       }
     }
     if (activeNode.type === 'repository') {
       return {
         title: activeNode.label,
         subtitle: `Repository inside ${activeNode.parent ?? 'workspace'}`,
-        body: 'Тут может быть информация о статусе, ветках и последних деплоях.',
+        body: '',
       }
     }
     return {
@@ -681,6 +751,7 @@ function WorkspacePage() {
           activeIntegration={activeIntegration}
           onIntegrationSettings={handleOpenIntegrationSettings}
           onIntegrationDelete={handleOpenIntegrationDelete}
+          onRepositoryDelete={handleOpenRepositoryDelete}
           onSettingsClick={handleOpenWorkspaceSettings}
           onDeleteClick={() => setIsDeleteModalOpen(true)}
           isSubmitting={isSubmitting}
@@ -851,6 +922,43 @@ function WorkspacePage() {
                 disabled={isDeletingIntegration}
               >
                 {isDeletingIntegration ? 'Удаляю…' : 'Удалить интеграцию'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isRepositoryDeleteModalOpen && repositoryDeleteTarget && selectedWorkspace && (
+        <div
+          className="workspace-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="repository-delete-title"
+        >
+          <div className="workspace-modal__content">
+            <p className="workspace-modal__eyebrow">Удаление репозитория</p>
+            <h3 id="repository-delete-title">Вы уверены?</h3>
+            <p className="workspace-modal__description">
+              Репозиторий «{repositoryDeleteTarget.repo.full_path}» будет отсоединён от workspace и все данные
+              о синхронизации будут удалены. Вы уверены, что хотите продолжить?
+            </p>
+            {repositoryDeleteError && (
+              <p className="workspace-modal__error">{repositoryDeleteError}</p>
+            )}
+            <div className="workspace-modal__actions">
+              <button
+                type="button"
+                onClick={handleCloseRepositoryDelete}
+                disabled={isDeletingRepository}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                className="workspace-modal__confirm"
+                onClick={handleConfirmRepositoryDelete}
+                disabled={isDeletingRepository}
+              >
+                {isDeletingRepository ? 'Удаляю…' : 'Удалить репозиторий'}
               </button>
             </div>
           </div>

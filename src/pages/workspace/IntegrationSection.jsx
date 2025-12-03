@@ -38,66 +38,6 @@ function IntegrationSection({
 
   const showList = isIntegrationOpen
 
-  // const renderRepoNodes = (integration) => {
-  //   const repoList = Array.isArray(integration.repos) ? integration.repos : []
-  //   const repoOpen = isRepoOpen(integration.id)
-  //   const Icon = providerIcons[integration.provider] || null
-
-  //   return (
-  //     <div key={integration.id} className="integration-item">
-  //       <button
-  //         type="button"
-  //         className={`tree-item tree-item--integration ${
-  //           activeNode.type === 'integration' && activeNode.id === integration.id
-  //             ? 'tree-item--active'
-  //             : ''
-  //         }`}
-  //         onClick={() => onIntegrationSelect(integration)}
-  //       >
-  //         <span
-  //           className={`chevron ${repoOpen ? 'chevron--open' : ''}`}
-  //           aria-hidden="true"
-  //           onClick={(event) => {
-  //             event.stopPropagation()
-  //             toggleRepos(integration.id)
-  //           }}
-  //         />
-  //         {Icon ? (
-  //           <Icon className="integration-provider-icon" aria-hidden="true" />
-  //         ) : (
-  //           <span className="node-icon node-icon--integration" aria-hidden="true" />
-  //         )}
-  //         <span>{integration.name}</span>
-  //       </button>
-
-  //       {repoOpen && (
-  //         <div className="repo-list">
-  //           {repoList.length === 0 ? (
-  //             <p className="repo-empty">Нет репозиториев</p>
-  //           ) : (
-  //             repoList.map((repo) => (
-  //               <button
-  //                 key={`${integration.id}-${repo}`}
-  //                 type="button"
-  //                 className={`tree-item tree-item--repo ${
-  //                   activeNode.type === 'repository' &&
-  //                   activeNode.id === `${integration.id}-${repo}`
-  //                     ? 'tree-item--active'
-  //                     : ''
-  //                 }`}
-  //                 onClick={() => onRepoSelect(integration, repo)}
-  //               >
-  //                 <span className="node-icon node-icon--repo" aria-hidden="true" />
-  //                 <span>{repo}</span>
-  //               </button>
-  //             ))
-  //           )}
-  //         </div>
-  //       )}
-  //     </div>
-  //   )
-  // }
-
   const renderRepoNodes = (integration) => {
     const repoList = savedRepositories[integration.id] ?? []
     const repoOpen = isRepoOpen(integration.id)
@@ -152,21 +92,25 @@ function IntegrationSection({
                 const isRepoActive =
                   activeNode.type === 'repository' && activeNode.id === repoId
                 return (
-                <button
-                  key={repoId}
-                  type="button"
-                  className={`tree-item tree-item--repo ${
-                    isRepoActive ? 'tree-item--active' : ''
-                  }`}
-                  onClick={() => onRepoSelect(integration, repo)}
-                >
-                  <div className="repo-row">
-                    <span className="repo-row__name">{repo.full_path}</span>
-                    <span className="repo-row__meta">
-                      {repo.provider} • {repo.default_branch || 'main'}
-                    </span>
+                  <div
+                    key={repoId}
+                    className={`repo-entry ${isRepoActive ? 'repo-entry--active' : ''}`}
+                  >
+                    <button
+                      type="button"
+                      className={`tree-item tree-item--repo ${
+                        isRepoActive ? 'tree-item--active' : ''
+                      }`}
+                      onClick={() => onRepoSelect(integration, repo)}
+                    >
+                      <div className="repo-row">
+                        <span className="repo-row__name">{repo.full_path}</span>
+                        <span className="repo-row__meta">
+                          {repo.provider} • {repo.default_branch || 'main'}
+                        </span>
+                      </div>
+                    </button>
                   </div>
-                </button>
                 )
               })
             )}
