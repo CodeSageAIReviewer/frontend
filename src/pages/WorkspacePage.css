@@ -265,6 +265,22 @@
   gap: 4px;
 }
 
+.integration-repo-launch {
+  align-self: flex-start;
+  border: none;
+  background: rgba(59, 130, 246, 0.08);
+  color: #0f172a;
+  border-radius: 999px;
+  padding: 0.25rem 0.9rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 1.4rem;
+}
+
+.integration-repo-launch:hover {
+  background: rgba(59, 130, 246, 0.18);
+}
+
 .integration-status {
   margin: 0;
   font-size: 0.85rem;
@@ -689,6 +705,12 @@
   gap: 12px;
 }
 
+.workspace-modal__content.repository-picker {
+  max-width: 760px;
+  width: min(760px, 90vw);
+  padding: 32px 36px;
+}
+
 .workspace-modal__eyebrow {
   margin: 0;
   font-size: 0.75rem;
@@ -714,6 +736,49 @@
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+}
+
+.repository-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 1rem 0;
+  width: 100%;
+}
+
+.repository-table__header {
+  display: grid;
+  grid-template-columns: auto minmax(160px, 2fr) 1fr 1fr 1fr;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  gap: 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.repository-table__row {
+  display: grid;
+  grid-template-columns: auto minmax(160px, 2fr) 1fr 1fr 1fr;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border-radius: 0.75rem;
+  background: rgba(15, 23, 42, 0.02);
+}
+
+.repository-table__row input {
+  margin: 0;
+}
+
+.repository-table__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace-modal__actions button {

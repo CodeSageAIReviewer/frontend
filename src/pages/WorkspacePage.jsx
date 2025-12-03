@@ -3,11 +3,13 @@ import {
   createIntegration,
   createWorkspace,
   deleteWorkspace,
+  listAvailableRepositories,
   listIntegrations,
   listWorkspaces,
 } from '../services/workspaceClient'
 import WorkspaceSidebar from './workspace/WorkspaceSidebar'
 import WorkspaceContent from './workspace/WorkspaceContent'
+import RepositoryPickerModal from './workspace/RepositoryPickerModal'
 import './WorkspacePage.css'
 
 const initialIntegrationForm = {
@@ -38,6 +40,11 @@ function WorkspacePage() {
   const [integrationForm, setIntegrationForm] = useState(initialIntegrationForm)
   const [integrationFormError, setIntegrationFormError] = useState('')
   const [isSubmittingIntegration, setIsSubmittingIntegration] = useState(false)
+  const [repoModalState, setRepoModalState] = useState({ isOpen: false, integration: null })
+  const [availableRepos, setAvailableRepos] = useState([])
+  const [availableReposLoading, setAvailableReposLoading] = useState(false)
+  const [availableReposError, setAvailableReposError] = useState('')
+  const [selectedRepoIds, setSelectedRepoIds] = useState(new Set())
 
   const selectedWorkspace = useMemo(
     () => workspaces.find((workspace) => workspace.id === selectedWorkspaceId),
@@ -108,6 +115,29 @@ function WorkspacePage() {
   }, [selectedWorkspaceId, fetchIntegrations])
 
   useEffect(() => {
+    if (!repoModalState.isOpen || !repoModalState.integration || !selectedWorkspaceId) {
+      return
+    }
+    const fetchAvailable = async () => {
+      setAvailableReposLoading(true)
+      setAvailableReposError('')
+      try {
+        const data = await listAvailableRepositories(
+          selectedWorkspaceId,
+          repoModalState.integration.id,
+        )
+        setAvailableRepos(Array.isArray(data) ? data : [])
+      } catch (error) {
+        setAvailableRepos([])
+        setAvailableReposError(error.message ?? 'Не удалось загрузить репозитории.')
+      } finally {
+        setAvailableReposLoading(false)
+      }
+    }
+    fetchAvailable()
+  }, [repoModalState, selectedWorkspaceId])
+
+  useEffect(() => {
     if (selectedWorkspaceId && activeNode.workspaceId !== selectedWorkspaceId) {
       const workspace = workspaces.find((item) => item.id === selectedWorkspaceId)
       if (workspace) {
@@ -176,11 +206,11 @@ function WorkspacePage() {
     setIsAddingIntegration(false)
   }
 
-  const handleBeginWorkspaceCreate = () => {
-    setCreatingWorkspace(true)
-    setSelectedWorkspaceId(null)
-    setActiveNode({ type: 'workspace', id: null, workspaceId: null, label: '' })
-  }
+  // const handleBeginWorkspaceCreate = () => {
+  //   setCreatingWorkspace(true)
+  //   setSelectedWorkspaceId(null)
+  //   setActiveNode({ type: 'workspace', id: null, workspaceId: null, label: '' })
+  // }
 
   const handleIntegrationSelect = (workspace, integration) => {
     setSelectedWorkspaceId(workspace.id)
@@ -262,6 +292,40 @@ function WorkspacePage() {
     }
   }
 
+  const handleBeginWorkspaceCreate = () => {
+    setCreatingWorkspace(true)
+    setSelectedWorkspaceId(null)
+    setActiveNode({ type: 'workspace', id: null, workspaceId: null, label: '' })
+  }
+
+  const handleOpenRepositoryModal = (workspace, integration) => {
+    handleIntegrationSelect(workspace, integration)
+    setRepoModalState({ isOpen: true, integration })
+    setSelectedRepoIds(new Set())
+  }
+
+  const closeRepositoryModal = () => {
+    setRepoModalState({ isOpen: false, integration: null })
+    setSelectedRepoIds(new Set())
+  }
+
+  const toggleRepoSelection = (repoId) => {
+    setSelectedRepoIds((prev) => {
+      const updated = new Set(prev)
+      if (updated.has(repoId)) {
+        updated.delete(repoId)
+      } else {
+        updated.add(repoId)
+      }
+      return updated
+    })
+  }
+
+  const handleRepositoryModalApply = () => {
+    // For now just close modal; selected repos available in `selectedRepoIds`.
+    closeRepositoryModal()
+  }
+
   const toggleIntegrations = (workspaceId) => {
     setOpenIntegrations((prev) => ({
       [workspaceId]: !prev[workspaceId],
@@ -330,6 +394,7 @@ function WorkspacePage() {
           handleRepoSelect={handleRepoSelect}
           onWorkspaceSelect={handleWorkspaceSelect}
           onCreateWorkspaceClick={handleBeginWorkspaceCreate}
+          onOpenRepositoryModal={handleOpenRepositoryModal}
         />
         <WorkspaceContent
           creatingWorkspace={creatingWorkspace}
@@ -347,6 +412,18 @@ function WorkspacePage() {
           isSubmitting={isSubmitting}
         />
       </main>
+      <RepositoryPickerModal
+        isOpen={repoModalState.isOpen}
+        workspace={selectedWorkspace}
+        integration={repoModalState.integration}
+        repositories={availableRepos}
+        loading={availableReposLoading}
+        error={availableReposError}
+        selectedIds={selectedRepoIds}
+        onToggleRepo={toggleRepoSelection}
+        onClose={closeRepositoryModal}
+        onApply={handleRepositoryModalApply}
+      />
       {isDeleteModalOpen && selectedWorkspace && canDeleteWorkspace && (
         <div className="workspace-modal" role="dialog" aria-modal="true" aria-labelledby="workspace-delete-title">
           <div className="workspace-modal__content">

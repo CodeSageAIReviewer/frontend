@@ -23,6 +23,7 @@ function WorkspaceSidebar({
   onWorkspaceSelect,
   onCreateWorkspaceClick,
   integrationFormError,
+  onOpenRepositoryModal,
 }) {
   const isIntegrationOpen = (workspaceId) => openIntegrations[workspaceId] ?? false
 
@@ -82,6 +83,7 @@ function WorkspaceSidebar({
                   handleIntegrationSelect(workspace, integration)
                 }
                 onRepoSelect={(integration, repo) => handleRepoSelect(workspace, integration, repo)}
+                onOpenRepositoryModal={onOpenRepositoryModal}
               />
             </li>
           )
