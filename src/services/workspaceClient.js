@@ -17,6 +17,15 @@ export const connectRepositories = (workspaceId, payload) =>
   apiRequest.post(`/workspace/${workspaceId}/repositories/connect/`, payload)
 export const listRepositories = (workspaceId) =>
   apiRequest.get(`/workspace/${workspaceId}/repositories/list/`)
+export const listMergeRequests = (workspaceId, repositoryId, params) =>
+  apiRequest.get(
+    `/workspace/${workspaceId}/repositories/${repositoryId}/merge-requests/list/`,
+    params,
+  )
+export const syncMergeRequests = (workspaceId, repositoryId) =>
+  apiRequest.post(
+    `/workspace/${workspaceId}/repositories/${repositoryId}/merge-requests/sync/`,
+  )
 export const updateIntegration = (workspaceId, integrationId, payload) =>
   apiRequest.patch(
     `/workspace/${workspaceId}/integrations/${integrationId}/update/`,
