@@ -9,6 +9,8 @@ function RepositoryPickerModal({
   onToggleRepo,
   onClose,
   onApply,
+  applyLoading,
+  applyError,
 }) {
   if (!isOpen || !workspace || !integration) {
     return null
@@ -50,11 +52,17 @@ function RepositoryPickerModal({
             ))}
           </div>
         )}
+        {applyError && <p className="integration-status integration-status--error">{applyError}</p>}
         <div className="workspace-modal__actions">
           <button type="button" onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className="workspace-modal__confirm" onClick={onApply}>
+          <button
+            type="button"
+            className="workspace-modal__confirm"
+            onClick={onApply}
+            disabled={applyLoading || selectedIds.size === 0}
+          >
             Apply
           </button>
         </div>

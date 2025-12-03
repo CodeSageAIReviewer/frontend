@@ -11,3 +11,7 @@ export const createIntegration = (workspaceId, payload) =>
   apiRequest.post(`/workspace/${workspaceId}/integrations/create/`, payload)
 export const listAvailableRepositories = (workspaceId, integrationId) =>
   apiRequest.get(`/workspace/${workspaceId}/integrations/${integrationId}/repositories/available/`)
+export const connectRepositories = (workspaceId, payload) =>
+  apiRequest.post(`/workspace/${workspaceId}/repositories/connect/`, payload)
+export const listRepositories = (workspaceId) =>
+  apiRequest.get(`/workspace/${workspaceId}/repositories/list/`)

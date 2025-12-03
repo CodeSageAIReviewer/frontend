@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  connectRepositories,
   createIntegration,
   createWorkspace,
   deleteWorkspace,
   listAvailableRepositories,
   listIntegrations,
+  listRepositories,
   listWorkspaces,
 } from '../services/workspaceClient'
 import WorkspaceSidebar from './workspace/WorkspaceSidebar'
@@ -45,6 +47,11 @@ function WorkspacePage() {
   const [availableReposLoading, setAvailableReposLoading] = useState(false)
   const [availableReposError, setAvailableReposError] = useState('')
   const [selectedRepoIds, setSelectedRepoIds] = useState(new Set())
+  const [repoSaveLoading, setRepoSaveLoading] = useState(false)
+  const [repoSaveError, setRepoSaveError] = useState('')
+  const [savedRepositories, setSavedRepositories] = useState({})
+  const [savedRepositoriesLoading, setSavedRepositoriesLoading] = useState(false)
+  const [savedRepositoriesError, setSavedRepositoriesError] = useState('')
 
   const selectedWorkspace = useMemo(
     () => workspaces.find((workspace) => workspace.id === selectedWorkspaceId),
@@ -113,6 +120,40 @@ function WorkspacePage() {
     fetchIntegrations(selectedWorkspaceId)
     setIsAddingIntegration(false)
   }, [selectedWorkspaceId, fetchIntegrations])
+
+  const fetchSavedRepositories = useCallback(
+    async (workspaceId) => {
+      if (!workspaceId) {
+        return
+      }
+
+      setSavedRepositoriesLoading(true)
+      setSavedRepositoriesError('')
+      try {
+        const data = await listRepositories(workspaceId)
+        const grouped = {}
+        Array.isArray(data) &&
+          data.forEach((repo) => {
+            const integrationId = repo.integration_id
+            if (!grouped[integrationId]) {
+              grouped[integrationId] = []
+            }
+            grouped[integrationId].push(repo)
+          })
+        setSavedRepositories(grouped)
+      } catch (error) {
+        setSavedRepositories({})
+        setSavedRepositoriesError(error.message ?? 'Не удалось загрузить сохранённые репозитории.')
+      } finally {
+        setSavedRepositoriesLoading(false)
+      }
+    },
+    [],
+  )
+
+  useEffect(() => {
+    fetchSavedRepositories(selectedWorkspaceId)
+  }, [selectedWorkspaceId, fetchSavedRepositories])
 
   useEffect(() => {
     if (!repoModalState.isOpen || !repoModalState.integration || !selectedWorkspaceId) {
@@ -206,12 +247,6 @@ function WorkspacePage() {
     setIsAddingIntegration(false)
   }
 
-  // const handleBeginWorkspaceCreate = () => {
-  //   setCreatingWorkspace(true)
-  //   setSelectedWorkspaceId(null)
-  //   setActiveNode({ type: 'workspace', id: null, workspaceId: null, label: '' })
-  // }
-
   const handleIntegrationSelect = (workspace, integration) => {
     setSelectedWorkspaceId(workspace.id)
     setActiveNode({
@@ -231,8 +266,8 @@ function WorkspacePage() {
     setSelectedWorkspaceId(workspace.id)
     setActiveNode({
       type: 'repository',
-      id: `${integration.id}-${repo}`,
-      label: repo,
+      id: `${integration.id}-${repo?.external_id ?? repo}`,
+      label: repo?.full_path ?? repo,
       parent: integration.name,
       workspace: workspace.name,
       workspaceId: workspace.id,
@@ -302,11 +337,13 @@ function WorkspacePage() {
     handleIntegrationSelect(workspace, integration)
     setRepoModalState({ isOpen: true, integration })
     setSelectedRepoIds(new Set())
+    setRepoSaveError('')
   }
 
   const closeRepositoryModal = () => {
     setRepoModalState({ isOpen: false, integration: null })
     setSelectedRepoIds(new Set())
+    setRepoSaveError('')
   }
 
   const toggleRepoSelection = (repoId) => {
@@ -321,9 +358,40 @@ function WorkspacePage() {
     })
   }
 
-  const handleRepositoryModalApply = () => {
-    // For now just close modal; selected repos available in `selectedRepoIds`.
-    closeRepositoryModal()
+  const handleRepositoryModalApply = async () => {
+    if (!selectedWorkspaceId || !repoModalState.integration) {
+      return
+    }
+
+    const payloadRepos = availableRepos
+      .filter((repo) => selectedRepoIds.has(repo.external_id))
+      .map(({ external_id, name, full_path, default_branch }) => ({
+        external_id,
+        name,
+        full_path,
+        default_branch,
+      }))
+
+    if (payloadRepos.length === 0) {
+      setRepoSaveError('Выберите хотя бы один репозиторий.')
+      return
+    }
+
+    setRepoSaveLoading(true)
+    setRepoSaveError('')
+
+    try {
+    await connectRepositories(selectedWorkspaceId, {
+      integration_id: repoModalState.integration.id,
+      repositories: payloadRepos,
+    })
+      await fetchSavedRepositories(selectedWorkspaceId)
+      closeRepositoryModal()
+    } catch (error) {
+      setRepoSaveError(error.message ?? 'Не удалось сохранить репозитории.')
+    } finally {
+      setRepoSaveLoading(false)
+    }
   }
 
   const toggleIntegrations = (workspaceId) => {
@@ -394,6 +462,9 @@ function WorkspacePage() {
           handleRepoSelect={handleRepoSelect}
           onWorkspaceSelect={handleWorkspaceSelect}
           onCreateWorkspaceClick={handleBeginWorkspaceCreate}
+          savedRepositories={savedRepositories}
+          savedRepositoriesLoading={savedRepositoriesLoading}
+          savedRepositoriesError={savedRepositoriesError}
           onOpenRepositoryModal={handleOpenRepositoryModal}
         />
         <WorkspaceContent
@@ -423,6 +494,8 @@ function WorkspacePage() {
         onToggleRepo={toggleRepoSelection}
         onClose={closeRepositoryModal}
         onApply={handleRepositoryModalApply}
+        applyLoading={repoSaveLoading}
+        applyError={repoSaveError}
       />
       {isDeleteModalOpen && selectedWorkspace && canDeleteWorkspace && (
         <div className="workspace-modal" role="dialog" aria-modal="true" aria-labelledby="workspace-delete-title">

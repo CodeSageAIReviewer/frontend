@@ -25,6 +25,9 @@ function IntegrationSection({
   handleCreateIntegration,
   isSubmittingIntegration,
   integrationFormError,
+  savedRepositories,
+  savedRepositoriesLoading,
+  savedRepositoriesError,
   onIntegrationSelect,
   onRepoSelect,
   onOpenRepositoryModal,
@@ -96,7 +99,7 @@ function IntegrationSection({
   // }
 
   const renderRepoNodes = (integration) => {
-    const repoList = Array.isArray(integration.repos) ? integration.repos : []
+    const repoList = savedRepositories[integration.id] ?? []
     const repoOpen = isRepoOpen(integration.id)
     const Icon = providerIcons[integration.provider] || null
 
@@ -137,25 +140,35 @@ function IntegrationSection({
 
         {repoOpen && (
           <div className="repo-list">
-            {repoList.length === 0 ? (
-              <p className="repo-empty">Нет репозиториев</p>
+            {savedRepositoriesLoading && workspace.id === selectedWorkspaceId ? (
+              <p className="integration-status">Загружаем репозитории…</p>
+            ) : savedRepositoriesError && workspace.id === selectedWorkspaceId ? (
+              <p className="integration-status integration-status--error">{savedRepositoriesError}</p>
+            ) : repoList.length === 0 ? (
+              <p className="repo-empty">Нет подключённых репозиториев</p>
             ) : (
-              repoList.map((repo) => (
+              repoList.map((repo) => {
+                const repoId = `${integration.id}-${repo.external_id}`
+                const isRepoActive =
+                  activeNode.type === 'repository' && activeNode.id === repoId
+                return (
                 <button
-                  key={`${integration.id}-${repo}`}
+                  key={repoId}
                   type="button"
                   className={`tree-item tree-item--repo ${
-                    activeNode.type === 'repository' &&
-                    activeNode.id === `${integration.id}-${repo}`
-                      ? 'tree-item--active'
-                      : ''
+                    isRepoActive ? 'tree-item--active' : ''
                   }`}
                   onClick={() => onRepoSelect(integration, repo)}
                 >
-                  <span className="node-icon node-icon--repo" aria-hidden="true" />
-                  <span>{repo}</span>
+                  <div className="repo-row">
+                    <span className="repo-row__name">{repo.full_path}</span>
+                    <span className="repo-row__meta">
+                      {repo.provider} • {repo.default_branch || 'main'}
+                    </span>
+                  </div>
                 </button>
-              ))
+                )
+              })
             )}
           </div>
         )}
