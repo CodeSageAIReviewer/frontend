@@ -10,8 +10,14 @@ function WorkspaceContent({
   showActivePanel,
   activeInfo,
   canDeleteWorkspace,
+  canEditWorkspace,
+  onSettingsClick,
   onDeleteClick,
   isSubmitting,
+  activeNode,
+  activeIntegration,
+  onIntegrationSettings,
+  onIntegrationDelete,
 }) {
   return (
     <section className="workspace-content">
@@ -48,34 +54,52 @@ function WorkspaceContent({
                 <p className="workspace-panel__eyebrow">{activeInfo.subtitle}</p>
                 <h1>{activeInfo.title}</h1>
               </div>
-              {selectedWorkspace && (
-                <div className="workspace-panel__status">{selectedWorkspace.role}</div>
-              )}
             </div>
             <p className="workspace-panel__description">{activeInfo.body}</p>
             {selectedWorkspace && (
               <>
-                <div className="workspace-panel__description">
-                  Создано:{' '}
-                  {new Date(selectedWorkspace.created_at).toLocaleDateString('ru-RU', {
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                </div>
                 <div className="workspace-panel__actions">
-                  <button type="button">Добавить участника</button>
-                  <button type="button">Настройки</button>
-                  <button type="button">История изменений</button>
-                  {canDeleteWorkspace && (
-                    <button
-                      type="button"
-                      className="workspace-panel__delete"
-                      onClick={onDeleteClick}
-                    >
-                      Удалить
+                  {activeNode?.type === 'workspace' && (
+                    <button type="button">Добавить участника</button>
+                  )}
+                  {canEditWorkspace && activeNode?.type === 'workspace' && (
+                    <button type="button" onClick={onSettingsClick}>
+                      Настройки
                     </button>
                   )}
+                  {canEditWorkspace &&
+                    activeNode?.type === 'integration' &&
+                    activeIntegration &&
+                    onIntegrationSettings && (
+                      <button
+                        type="button"
+                        onClick={() => onIntegrationSettings(activeIntegration)}
+                      >
+                        Настройки интеграции
+                      </button>
+                    )}
+                  {canEditWorkspace &&
+                    activeNode?.type === 'integration' &&
+                    activeIntegration &&
+                    onIntegrationDelete && (
+                      <button
+                        type="button"
+                        className="workspace-panel__delete workspace-panel__delete--integration"
+                        onClick={() => onIntegrationDelete(activeIntegration)}
+                      >
+                        Удалить интеграцию
+                      </button>
+                    )}
+                  {canDeleteWorkspace &&
+                    activeNode?.type === 'workspace' && (
+                      <button
+                        type="button"
+                        className="workspace-panel__delete"
+                        onClick={onDeleteClick}
+                      >
+                        Удалить
+                      </button>
+                    )}
                 </div>
                 <div className="workspace-panel__grid">
                   <article className="workspace-card">
@@ -87,10 +111,6 @@ function WorkspaceContent({
                     <p className="workspace-card__value">
                       {new Date(selectedWorkspace.created_at).toLocaleString('ru-RU')}
                     </p>
-                  </article>
-                  <article className="workspace-card">
-                    <p className="workspace-card__label">Роль</p>
-                    <p className="workspace-card__value">{selectedWorkspace.role || 'Member'}</p>
                   </article>
                 </div>
               </>

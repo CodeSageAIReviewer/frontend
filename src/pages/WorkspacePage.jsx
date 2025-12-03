@@ -3,11 +3,14 @@ import {
   connectRepositories,
   createIntegration,
   createWorkspace,
+  deleteIntegration,
   deleteWorkspace,
   listAvailableRepositories,
   listIntegrations,
   listRepositories,
   listWorkspaces,
+  updateIntegration,
+  updateWorkspace,
 } from '../services/workspaceClient'
 import WorkspaceSidebar from './workspace/WorkspaceSidebar'
 import WorkspaceContent from './workspace/WorkspaceContent'
@@ -32,6 +35,24 @@ function WorkspacePage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false)
+  const [workspaceSettingsName, setWorkspaceSettingsName] = useState('')
+  const [settingsError, setSettingsError] = useState('')
+  const [isUpdatingWorkspace, setIsUpdatingWorkspace] = useState(false)
+  const [isIntegrationSettingsOpen, setIsIntegrationSettingsOpen] = useState(false)
+  const [integrationSettingsTarget, setIntegrationSettingsTarget] = useState(null)
+  const [integrationSettingsForm, setIntegrationSettingsForm] = useState({
+    name: '',
+    base_url: '',
+    access_token: '',
+    refresh_token: '',
+  })
+  const [integrationSettingsError, setIntegrationSettingsError] = useState('')
+  const [isUpdatingIntegration, setIsUpdatingIntegration] = useState(false)
+  const [isIntegrationDeleteModalOpen, setIsIntegrationDeleteModalOpen] = useState(false)
+  const [integrationDeleteTarget, setIntegrationDeleteTarget] = useState(null)
+  const [integrationDeleteError, setIntegrationDeleteError] = useState('')
+  const [isDeletingIntegration, setIsDeletingIntegration] = useState(false)
   const [activeNode, setActiveNode] = useState({ type: 'workspace', id: null, workspaceId: null, label: '' })
   const [openIntegrations, setOpenIntegrations] = useState({})
   const [openRepos, setOpenRepos] = useState({})
@@ -58,6 +79,13 @@ function WorkspacePage() {
     [workspaces, selectedWorkspaceId],
   )
 
+  const activeIntegration = useMemo(() => {
+    if (activeNode.type !== 'integration') {
+      return null
+    }
+    return integrations.find((integration) => integration.id === activeNode.id) ?? null
+  }, [activeNode, integrations])
+
   const canDeleteWorkspace = useMemo(() => {
     if (!selectedWorkspace) {
       return false
@@ -68,6 +96,8 @@ function WorkspacePage() {
     const normalizedRole = selectedWorkspace.role?.toLowerCase()
     return normalizedRole === 'admin' || normalizedRole === 'owner'
   }, [selectedWorkspace])
+
+  const canEditWorkspace = canDeleteWorkspace
 
   const fetchWorkspaces = useCallback(async () => {
     try {
@@ -333,6 +363,173 @@ function WorkspacePage() {
     setActiveNode({ type: 'workspace', id: null, workspaceId: null, label: '' })
   }
 
+  const handleOpenWorkspaceSettings = () => {
+    if (!selectedWorkspace || !canEditWorkspace) {
+      return
+    }
+    setWorkspaceSettingsName(selectedWorkspace.name ?? '')
+    setSettingsError('')
+    setIsSettingsModalOpen(true)
+  }
+
+  const handleCloseWorkspaceSettings = () => {
+    setIsSettingsModalOpen(false)
+    setSettingsError('')
+  }
+
+  const handleUpdateWorkspace = async (event) => {
+    event.preventDefault()
+    if (!selectedWorkspace || !canEditWorkspace) {
+      return
+    }
+    const trimmedName = workspaceSettingsName.trim()
+    if (!trimmedName) {
+      setSettingsError('Введите имя workspace.')
+      return
+    }
+    if (trimmedName.length > 255) {
+      setSettingsError('Название не может быть длиннее 255 символов.')
+      return
+    }
+
+    setIsUpdatingWorkspace(true)
+    setSettingsError('')
+
+    try {
+      await updateWorkspace(selectedWorkspace.id, { name: trimmedName })
+      await fetchWorkspaces()
+      setActiveNode((prev) => {
+        if (prev.workspaceId === selectedWorkspaceId) {
+          return { ...prev, label: trimmedName }
+        }
+        return prev
+      })
+      setIsSettingsModalOpen(false)
+    } catch (error) {
+      setSettingsError(error.message ?? 'Не удалось обновить workspace.')
+    } finally {
+      setIsUpdatingWorkspace(false)
+    }
+  }
+
+  const handleOpenIntegrationSettings = (integration) => {
+    if (!selectedWorkspace || !canEditWorkspace) {
+      return
+    }
+    setIntegrationSettingsTarget(integration)
+    setIntegrationSettingsForm({
+      name: integration?.name ?? '',
+      base_url: integration?.base_url ?? '',
+      access_token: '',
+      refresh_token: '',
+    })
+    setIntegrationSettingsError('')
+    setIsIntegrationSettingsOpen(true)
+  }
+
+  const handleCloseIntegrationSettings = () => {
+    setIsIntegrationSettingsOpen(false)
+    setIntegrationSettingsTarget(null)
+    setIntegrationSettingsError('')
+  }
+
+  const handleIntegrationSettingsChange = (field, value) => {
+    setIntegrationSettingsForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleUpdateIntegration = async (event) => {
+    event.preventDefault()
+    if (!selectedWorkspaceId || !integrationSettingsTarget || !canEditWorkspace) {
+      return
+    }
+
+    const payload = {}
+    const trimmedName = integrationSettingsForm.name.trim()
+    if (trimmedName) {
+      payload.name = trimmedName
+    }
+    const trimmedBaseUrl = integrationSettingsForm.base_url.trim()
+    if (trimmedBaseUrl) {
+      payload.base_url = trimmedBaseUrl
+    }
+    if (integrationSettingsForm.access_token.trim()) {
+      payload.access_token = integrationSettingsForm.access_token.trim()
+    }
+    if (integrationSettingsForm.refresh_token.trim()) {
+      payload.refresh_token = integrationSettingsForm.refresh_token.trim()
+    }
+
+    if (Object.keys(payload).length === 0) {
+      setIntegrationSettingsError('Укажите хотя бы одно поле для обновления.')
+      return
+    }
+
+    setIsUpdatingIntegration(true)
+    setIntegrationSettingsError('')
+
+    try {
+      await updateIntegration(selectedWorkspaceId, integrationSettingsTarget.id, payload)
+      await fetchIntegrations(selectedWorkspaceId)
+      setActiveNode((prev) => {
+        if (
+          prev.type === 'integration' &&
+          prev.id === integrationSettingsTarget.id &&
+          payload.name
+        ) {
+          return { ...prev, label: payload.name }
+        }
+        return prev
+      })
+      setIsIntegrationSettingsOpen(false)
+      setIntegrationSettingsTarget(null)
+    } catch (error) {
+      setIntegrationSettingsError(error.message ?? 'Не удалось обновить интеграцию.')
+    } finally {
+      setIsUpdatingIntegration(false)
+    }
+  }
+
+  const handleOpenIntegrationDelete = () => {
+    if (!activeIntegration || !canEditWorkspace) {
+      return
+    }
+    setIntegrationDeleteTarget(activeIntegration)
+    setIntegrationDeleteError('')
+    setIsIntegrationDeleteModalOpen(true)
+  }
+
+  const handleCloseIntegrationDelete = () => {
+    setIsIntegrationDeleteModalOpen(false)
+    setIntegrationDeleteTarget(null)
+    setIntegrationDeleteError('')
+  }
+
+  const handleConfirmIntegrationDelete = async () => {
+    if (!selectedWorkspaceId || !integrationDeleteTarget || !canEditWorkspace) {
+      return
+    }
+
+    setIsDeletingIntegration(true)
+    setIntegrationDeleteError('')
+
+    try {
+      await deleteIntegration(selectedWorkspaceId, integrationDeleteTarget.id)
+      await fetchIntegrations(selectedWorkspaceId)
+      setActiveNode({
+        type: 'workspace',
+        id: selectedWorkspaceId,
+        workspaceId: selectedWorkspaceId,
+        label: selectedWorkspace?.name ?? '',
+      })
+      setIsIntegrationDeleteModalOpen(false)
+      setIntegrationDeleteTarget(null)
+    } catch (error) {
+      setIntegrationDeleteError(error.message ?? 'Не удалось удалить интеграцию.')
+    } finally {
+      setIsDeletingIntegration(false)
+    }
+  }
+
   const handleOpenRepositoryModal = (workspace, integration) => {
     handleIntegrationSelect(workspace, integration)
     setRepoModalState({ isOpen: true, integration })
@@ -479,6 +676,12 @@ function WorkspacePage() {
           showActivePanel={showActivePanel}
           activeInfo={activeInfo}
           canDeleteWorkspace={canDeleteWorkspace}
+          canEditWorkspace={canEditWorkspace}
+          activeNode={activeNode}
+          activeIntegration={activeIntegration}
+          onIntegrationSettings={handleOpenIntegrationSettings}
+          onIntegrationDelete={handleOpenIntegrationDelete}
+          onSettingsClick={handleOpenWorkspaceSettings}
           onDeleteClick={() => setIsDeleteModalOpen(true)}
           isSubmitting={isSubmitting}
         />
@@ -497,6 +700,162 @@ function WorkspacePage() {
         applyLoading={repoSaveLoading}
         applyError={repoSaveError}
       />
+      {isSettingsModalOpen && selectedWorkspace && canEditWorkspace && (
+        <div
+          className="workspace-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="workspace-settings-title"
+        >
+          <div className="workspace-modal__content">
+            <p className="workspace-modal__eyebrow">Настройки workspace</p>
+            <h3 id="workspace-settings-title">Обновить рабочее пространство</h3>
+            <form className="workspace-modal__form" onSubmit={handleUpdateWorkspace}>
+              <label className="workspace-modal__field">
+                <span>Название workspace</span>
+                <input
+                  type="text"
+                  value={workspaceSettingsName}
+                  maxLength={255}
+                  onChange={(event) => setWorkspaceSettingsName(event.target.value)}
+                  placeholder="Новая рабочая зона"
+                  autoFocus
+                />
+              </label>
+              {settingsError && <p className="workspace-modal__error">{settingsError}</p>}
+              <div className="workspace-modal__actions">
+                <button type="button" onClick={handleCloseWorkspaceSettings} disabled={isUpdatingWorkspace}>
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  className="workspace-modal__submit"
+                  disabled={isUpdatingWorkspace}
+                >
+                  {isUpdatingWorkspace ? 'Применяю…' : 'Применить'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {isIntegrationSettingsOpen && integrationSettingsTarget && selectedWorkspace && (
+        <div
+          className="workspace-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="integration-settings-title"
+        >
+          <div className="workspace-modal__content">
+            <p className="workspace-modal__eyebrow">Настройки интеграции</p>
+            <h3 id="integration-settings-title">{integrationSettingsTarget.name}</h3>
+            <form className="workspace-modal__form" onSubmit={handleUpdateIntegration}>
+              <label className="workspace-modal__field">
+                <span>Название</span>
+                <input
+                  type="text"
+                  value={integrationSettingsForm.name}
+                  onChange={(event) =>
+                    handleIntegrationSettingsChange('name', event.target.value)
+                  }
+                  placeholder="Название интеграции"
+                  autoFocus
+                />
+              </label>
+              <label className="workspace-modal__field">
+                <span>Base URL</span>
+                <input
+                  type="url"
+                  value={integrationSettingsForm.base_url}
+                  onChange={(event) =>
+                    handleIntegrationSettingsChange('base_url', event.target.value)
+                  }
+                  placeholder="https://git.example.com"
+                />
+              </label>
+              <label className="workspace-modal__field">
+                <span>Access token</span>
+                <input
+                  type="password"
+                  value={integrationSettingsForm.access_token}
+                  onChange={(event) =>
+                    handleIntegrationSettingsChange('access_token', event.target.value)
+                  }
+                />
+              </label>
+              <label className="workspace-modal__field">
+                <span>Refresh token</span>
+                <input
+                  type="password"
+                  value={integrationSettingsForm.refresh_token}
+                  onChange={(event) =>
+                    handleIntegrationSettingsChange('refresh_token', event.target.value)
+                  }
+                />
+              </label>
+              <p className="workspace-modal__hint">
+                Оставьте токены пустыми, чтобы не менять их.
+              </p>
+              {integrationSettingsError && (
+                <p className="workspace-modal__error">{integrationSettingsError}</p>
+              )}
+              <div className="workspace-modal__actions">
+                <button
+                  type="button"
+                  onClick={handleCloseIntegrationSettings}
+                  disabled={isUpdatingIntegration}
+                >
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  className="workspace-modal__submit"
+                  disabled={isUpdatingIntegration}
+                >
+                  {isUpdatingIntegration ? 'Применяю…' : 'Применить'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {isIntegrationDeleteModalOpen && integrationDeleteTarget && selectedWorkspace && (
+        <div
+          className="workspace-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="integration-delete-title"
+        >
+          <div className="workspace-modal__content">
+            <p className="workspace-modal__eyebrow">Удаление интеграции</p>
+            <h3 id="integration-delete-title">Вы уверены?</h3>
+            <p className="workspace-modal__description">
+              Интеграция «{integrationDeleteTarget.name}» будет безвозвратно удалена, включая все связанные
+              репозитории и данные. Вы уверены, что хотите продолжить?
+            </p>
+            {integrationDeleteError && (
+              <p className="workspace-modal__error">{integrationDeleteError}</p>
+            )}
+            <div className="workspace-modal__actions">
+              <button
+                type="button"
+                onClick={handleCloseIntegrationDelete}
+                disabled={isDeletingIntegration}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                className="workspace-modal__confirm"
+                onClick={handleConfirmIntegrationDelete}
+                disabled={isDeletingIntegration}
+              >
+                {isDeletingIntegration ? 'Удаляю…' : 'Удалить интеграцию'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {isDeleteModalOpen && selectedWorkspace && canDeleteWorkspace && (
         <div className="workspace-modal" role="dialog" aria-modal="true" aria-labelledby="workspace-delete-title">
           <div className="workspace-modal__content">
