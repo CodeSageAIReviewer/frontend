@@ -36,5 +36,10 @@
    ```json
    { "status": "ok", "checked_at": "2024-05-17T18:00:00Z", "message": "OK" }
    ```
-2. Убедитесь, что CORS и CSRF настроены на прием запросов от фронтенда (в Docker-нейминге домен `frontend` или `localhost:4173`).
-3. Обновите `VITE_API_BASE_URL`, запустите билд и фронтенд сам покажет статус.
+2. Реализуйте API для аутентификации:
+   - `POST /api/users/register/` — принимает `username`, `password`, `password2`, возвращает `access_token`/`refresh_token`.
+   - `POST /api/users/login/` — принимает `username` и `password`, возвращает `access_token`/`refresh_token`.
+   - `POST /api/users/refresh/` — принимает текущий `refresh_token` и возвращает новые токены.
+3. Убедитесь, что CORS и CSRF настроены на прием запросов от фронтенда (в Docker-нейминге домен `frontend` или `localhost:4173`).
+4. Обновите `VITE_API_BASE_URL`, запустите билд и фронтенд сам покажет статус.
+5. **CORS для токенов**: в Django разрешите `https://localhost:4173`, `http://localhost:4173`, `http://frontend:4173` (или ваш production-домен) в `CORS_ALLOWED_ORIGINS`, добавьте `corsheaders` middleware и выставьте `CORS_ALLOW_CREDENTIALS = True`, чтобы браузер мог передавать cookies. Также убедитесь, что `CSRF_TRUSTED_ORIGINS` включает адрес фронтенда и что заголовок `Access-Control-Allow-Credentials` возвращается с `True`.
