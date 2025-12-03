@@ -25,7 +25,7 @@ function PageLayout({ children }) {
       {showNavbar && (
         <nav className="site-navbar">
           <div className="site-brand">
-            <Link to="/landing">CodeSage AI Reviewer</Link>
+            <Link to="/landing">CodeSage</Link>
           </div>
           <div className="site-navbar__actions">
             <Link to="/workspace" className="nav-link-button">

@@ -9,13 +9,14 @@
   width: 24%;
   min-width: 260px;
   max-width: 320px;
-  padding: 32px 28px;
+  padding: 36px 28px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  border-right: 1px solid rgba(15, 23, 42, 0.08);
+  gap: 24px;
   background: #ffffff;
-  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.05);
+  border-radius: 32px;
+  box-shadow: 0 40px 60px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .workspace-sidebar__header {
@@ -23,6 +24,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  align-self: stretch;
 }
 
 .workspace-sidebar__eyebrow {
@@ -43,18 +45,37 @@
 
 .workspace-sidebar__create {
   border: 1px solid rgba(15, 23, 42, 0.15);
-  background: rgba(56, 189, 248, 0.12);
-  color: #0369a1;
+  background: rgba(56, 189, 248, 0.18);
+  color: #0f172a;
   border-radius: 999px;
-  padding: 8px 16px;
-  font-weight: 500;
+  padding: 6px 16px 6px 14px;
+  font-weight: 600;
   font-size: 0.85rem;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
   transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.workspace-sidebar__create-icon {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0284c7;
+  opacity: 0.7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(2, 132, 199, 0.3);
+}
+
 .workspace-sidebar__create:hover {
-  background: rgba(59, 130, 246, 0.18);
-  box-shadow: 0 10px 22px rgba(59, 130, 246, 0.15);
+  background: rgba(59, 130, 246, 0.25);
+  box-shadow: 0 15px 30px rgba(15, 23, 42, 0.08);
   transform: translateY(-1px);
 }
 
@@ -75,25 +96,33 @@
 .workspace-tree__button {
   width: 100%;
   border: none;
-  background: transparent;
+  background: #ffffff;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 16px;
+  padding: 14px 14px 14px 18px;
   text-align: left;
-  border-radius: 12px;
+  border-radius: 16px;
   color: #0f172a;
   font-size: 0.95rem;
   transition: background 0.2s ease, color 0.2s ease;
+  border-left: 3px solid transparent;
+  position: relative;
 }
 
 .workspace-tree__button:hover {
   background: rgba(15, 23, 42, 0.06);
 }
 
+.workspace-tree__label {
+  flex: 1;
+  font-weight: 500;
+}
+
 .workspace-tree__button.is-active {
-  background: rgba(59, 130, 246, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.4);
+  background: rgba(15, 23, 42, 0.05);
+  border-left-color: #3b82f6;
+  font-weight: 600;
   color: #0f172a;
 }
 
@@ -102,16 +131,6 @@
   height: 12px;
   border-radius: 50%;
   border: 2px solid rgba(15, 23, 42, 0.25);
-}
-
-.workspace-tree__button.is-active .workspace-tree__indicator {
-  border-color: rgba(59, 130, 246, 0.8);
-  background: rgba(59, 130, 246, 0.5);
-}
-
-.workspace-tree__label {
-  flex: 1;
-  font-weight: 500;
 }
 
 .workspace-tree__meta {
@@ -125,6 +144,9 @@
   display: flex;
   justify-content: center;
   background: #f1f5f9;
+  border-left: 1px solid rgba(15, 23, 42, 0.08);
+  margin-left: -4px;
+  padding-left: 50px;
 }
 
 .workspace-content__shell {
@@ -399,4 +421,17 @@
   .workspace-form__actions button {
     width: 100%;
   }
+}
+.workspace-tree__button::before {
+  content: '';
+  position: absolute;
+  inset: 7px auto 7px 6px;
+  width: 3px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background 0.2s ease;
+}
+
+.workspace-tree__button.is-active::before {
+  background: #3b82f6;
 }

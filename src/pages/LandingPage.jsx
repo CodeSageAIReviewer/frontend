@@ -30,7 +30,7 @@ function LandingPage() {
       <section className="landing-panel">
         <header className="landing-head">
           <div>
-            <p className="eyebrow">CodeSage AI Reviewer</p>
+            <p className="eyebrow">CodeSage</p>
             <h1>AI-ассистент для спокойных и точных code review</h1>
             <p className="landing-subtitle">
               Структурированная панель, которая показывает вам коммиты, pull / merge requestы и

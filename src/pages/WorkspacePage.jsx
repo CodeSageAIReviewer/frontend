@@ -83,7 +83,6 @@ function WorkspacePage() {
       <aside className="workspace-sidebar">
           <div className="workspace-sidebar__header">
           <div>
-            <p className="workspace-sidebar__eyebrow">Дерево</p>
             <h2 className="workspace-sidebar__title">Workspaces</h2>
           </div>
           <button
@@ -94,7 +93,10 @@ function WorkspacePage() {
               setSelectedWorkspaceId(null)
             }}
           >
-            + Создать Workspace
+            <span className="workspace-sidebar__create-icon" aria-hidden="true">
+              +
+            </span>
+            <span>Создать Workspace</span>
           </button>
         </div>
 
