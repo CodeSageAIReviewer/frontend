@@ -703,6 +703,255 @@ function WorkspacePage() {
   const activeInfo = getActiveInfo()
   const showActivePanel = !creatingWorkspace && (selectedWorkspace || activeNode.type !== 'workspace')
 
+  const renderWorkspaceSettingsModal = () => {
+    if (!isSettingsModalOpen || !selectedWorkspace || !canEditWorkspace) {
+      return null
+    }
+    return (
+      <div
+        className="workspace-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="workspace-settings-title"
+      >
+        <div className="workspace-modal__content">
+          <p className="workspace-modal__eyebrow">Настройки workspace</p>
+          <h3 id="workspace-settings-title">Обновить рабочее пространство</h3>
+          <form className="workspace-modal__form" onSubmit={handleUpdateWorkspace}>
+            <label className="workspace-modal__field">
+              <span>Название workspace</span>
+              <input
+                type="text"
+                value={workspaceSettingsName}
+                maxLength={255}
+                onChange={(event) => setWorkspaceSettingsName(event.target.value)}
+                placeholder="Новая рабочая зона"
+                autoFocus
+              />
+            </label>
+            {settingsError && <p className="workspace-modal__error">{settingsError}</p>}
+            <div className="workspace-modal__actions">
+              <button type="button" onClick={handleCloseWorkspaceSettings} disabled={isUpdatingWorkspace}>
+                Отмена
+              </button>
+              <button
+                type="submit"
+                className="workspace-modal__submit"
+                disabled={isUpdatingWorkspace}
+              >
+                {isUpdatingWorkspace ? 'Применяю…' : 'Применить'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
+  const renderIntegrationSettingsModal = () => {
+    if (!isIntegrationSettingsOpen || !integrationSettingsTarget || !selectedWorkspace) {
+      return null
+    }
+    return (
+      <div
+        className="workspace-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="integration-settings-title"
+      >
+        <div className="workspace-modal__content">
+          <p className="workspace-modal__eyebrow">Настройки интеграции</p>
+          <h3 id="integration-settings-title">{integrationSettingsTarget.name}</h3>
+          <form className="workspace-modal__form" onSubmit={handleUpdateIntegration}>
+            <label className="workspace-modal__field">
+              <span>Название</span>
+              <input
+                type="text"
+                value={integrationSettingsForm.name}
+                onChange={(event) =>
+                  handleIntegrationSettingsChange('name', event.target.value)
+                }
+                placeholder="Название интеграции"
+                autoFocus
+              />
+            </label>
+            <label className="workspace-modal__field">
+              <span>Base URL</span>
+              <input
+                type="url"
+                value={integrationSettingsForm.base_url}
+                onChange={(event) =>
+                  handleIntegrationSettingsChange('base_url', event.target.value)
+                }
+                placeholder="https://git.example.com"
+              />
+            </label>
+            <label className="workspace-modal__field">
+              <span>Access token</span>
+              <input
+                type="password"
+                value={integrationSettingsForm.access_token}
+                onChange={(event) =>
+                  handleIntegrationSettingsChange('access_token', event.target.value)
+                }
+              />
+            </label>
+            <label className="workspace-modal__field">
+              <span>Refresh token</span>
+              <input
+                type="password"
+                value={integrationSettingsForm.refresh_token}
+                onChange={(event) =>
+                  handleIntegrationSettingsChange('refresh_token', event.target.value)
+                }
+              />
+            </label>
+            <p className="workspace-modal__hint">
+              Оставьте токены пустыми, чтобы не менять их.
+            </p>
+            {integrationSettingsError && (
+              <p className="workspace-modal__error">{integrationSettingsError}</p>
+            )}
+            <div className="workspace-modal__actions">
+              <button
+                type="button"
+                onClick={handleCloseIntegrationSettings}
+                disabled={isUpdatingIntegration}
+              >
+                Отмена
+              </button>
+              <button
+                type="submit"
+                className="workspace-modal__submit"
+                disabled={isUpdatingIntegration}
+              >
+                {isUpdatingIntegration ? 'Применяю…' : 'Применить'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
+  const renderRepositoryDeleteModal = () => {
+    if (!isRepositoryDeleteModalOpen || !repositoryDeleteTarget || !selectedWorkspace) {
+      return null
+    }
+    return (
+      <div
+        className="workspace-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="repository-delete-title"
+      >
+        <div className="workspace-modal__content">
+          <p className="workspace-modal__eyebrow">Удаление репозитория</p>
+          <h3 id="repository-delete-title">Вы уверены?</h3>
+          <p className="workspace-modal__description">
+            Репозиторий «{repositoryDeleteTarget.repo?.full_path}» будет отсоединён от workspace и все данные
+            о синхронизации будут удалены. Вы уверены, что хотите продолжить?
+          </p>
+          {repositoryDeleteError && (
+            <p className="workspace-modal__error">{repositoryDeleteError}</p>
+          )}
+          <div className="workspace-modal__actions">
+            <button
+              type="button"
+              onClick={handleCloseRepositoryDelete}
+              disabled={isDeletingRepository}
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              className="workspace-modal__confirm"
+              onClick={handleConfirmRepositoryDelete}
+              disabled={isDeletingRepository}
+            >
+              {isDeletingRepository ? 'Удаляю…' : 'Удалить репозиторий'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderIntegrationDeleteModal = () => {
+    if (!isIntegrationDeleteModalOpen || !integrationDeleteTarget || !selectedWorkspace || !canDeleteWorkspace) {
+      return null
+    }
+    return (
+      <div
+        className="workspace-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="integration-delete-title"
+      >
+        <div className="workspace-modal__content">
+          <p className="workspace-modal__eyebrow">Удаление интеграции</p>
+          <h3 id="integration-delete-title">Вы уверены?</h3>
+          <p className="workspace-modal__description">
+            Интеграция «{integrationDeleteTarget.name}» будет безвозвратно удалена, включая все связанные
+            репозитории и данные. Вы уверены, что хотите продолжить?
+          </p>
+          {integrationDeleteError && (
+            <p className="workspace-modal__error">{integrationDeleteError}</p>
+          )}
+          <div className="workspace-modal__actions">
+            <button
+              type="button"
+              onClick={handleCloseIntegrationDelete}
+              disabled={isDeletingIntegration}
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              className="workspace-modal__confirm"
+              onClick={handleConfirmIntegrationDelete}
+              disabled={isDeletingIntegration}
+            >
+              {isDeletingIntegration ? 'Удаляю…' : 'Удалить интеграцию'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderWorkspaceDeleteModal = () => {
+    if (!isDeleteModalOpen || !selectedWorkspace || !canDeleteWorkspace) {
+      return null
+    }
+    return (
+      <div className="workspace-modal" role="dialog" aria-modal="true" aria-labelledby="workspace-delete-title">
+        <div className="workspace-modal__content">
+          <p className="workspace-modal__eyebrow">Удаление workspace</p>
+          <h3 id="workspace-delete-title">Вы уверены?</h3>
+          <p className="workspace-modal__description">
+            Workspace «{selectedWorkspace.name}» будет бесследно удалён, включая все связанные данные. Вы уверены,
+            что хотите продолжить?
+          </p>
+          {deleteError && <p className="workspace-modal__error">{deleteError}</p>}
+          <div className="workspace-modal__actions">
+            <button type="button" onClick={() => setIsDeleteModalOpen(false)} disabled={isDeleting}>
+              Отмена
+            </button>
+            <button
+              type="button"
+              className="workspace-modal__confirm"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Удаляем…' : 'Удалить workspace'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
       <main className="workspace-page">
@@ -771,225 +1020,11 @@ function WorkspacePage() {
         applyLoading={repoSaveLoading}
         applyError={repoSaveError}
       />
-      {isSettingsModalOpen && selectedWorkspace && canEditWorkspace && (
-        <div
-          className="workspace-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="workspace-settings-title"
-        >
-          <div className="workspace-modal__content">
-            <p className="workspace-modal__eyebrow">Настройки workspace</p>
-            <h3 id="workspace-settings-title">Обновить рабочее пространство</h3>
-            <form className="workspace-modal__form" onSubmit={handleUpdateWorkspace}>
-              <label className="workspace-modal__field">
-                <span>Название workspace</span>
-                <input
-                  type="text"
-                  value={workspaceSettingsName}
-                  maxLength={255}
-                  onChange={(event) => setWorkspaceSettingsName(event.target.value)}
-                  placeholder="Новая рабочая зона"
-                  autoFocus
-                />
-              </label>
-              {settingsError && <p className="workspace-modal__error">{settingsError}</p>}
-              <div className="workspace-modal__actions">
-                <button type="button" onClick={handleCloseWorkspaceSettings} disabled={isUpdatingWorkspace}>
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  className="workspace-modal__submit"
-                  disabled={isUpdatingWorkspace}
-                >
-                  {isUpdatingWorkspace ? 'Применяю…' : 'Применить'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      {isIntegrationSettingsOpen && integrationSettingsTarget && selectedWorkspace && (
-        <div
-          className="workspace-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="integration-settings-title"
-        >
-          <div className="workspace-modal__content">
-            <p className="workspace-modal__eyebrow">Настройки интеграции</p>
-            <h3 id="integration-settings-title">{integrationSettingsTarget.name}</h3>
-            <form className="workspace-modal__form" onSubmit={handleUpdateIntegration}>
-              <label className="workspace-modal__field">
-                <span>Название</span>
-                <input
-                  type="text"
-                  value={integrationSettingsForm.name}
-                  onChange={(event) =>
-                    handleIntegrationSettingsChange('name', event.target.value)
-                  }
-                  placeholder="Название интеграции"
-                  autoFocus
-                />
-              </label>
-              <label className="workspace-modal__field">
-                <span>Base URL</span>
-                <input
-                  type="url"
-                  value={integrationSettingsForm.base_url}
-                  onChange={(event) =>
-                    handleIntegrationSettingsChange('base_url', event.target.value)
-                  }
-                  placeholder="https://git.example.com"
-                />
-              </label>
-              <label className="workspace-modal__field">
-                <span>Access token</span>
-                <input
-                  type="password"
-                  value={integrationSettingsForm.access_token}
-                  onChange={(event) =>
-                    handleIntegrationSettingsChange('access_token', event.target.value)
-                  }
-                />
-              </label>
-              <label className="workspace-modal__field">
-                <span>Refresh token</span>
-                <input
-                  type="password"
-                  value={integrationSettingsForm.refresh_token}
-                  onChange={(event) =>
-                    handleIntegrationSettingsChange('refresh_token', event.target.value)
-                  }
-                />
-              </label>
-              <p className="workspace-modal__hint">
-                Оставьте токены пустыми, чтобы не менять их.
-              </p>
-              {integrationSettingsError && (
-                <p className="workspace-modal__error">{integrationSettingsError}</p>
-              )}
-              <div className="workspace-modal__actions">
-                <button
-                  type="button"
-                  onClick={handleCloseIntegrationSettings}
-                  disabled={isUpdatingIntegration}
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  className="workspace-modal__submit"
-                  disabled={isUpdatingIntegration}
-                >
-                  {isUpdatingIntegration ? 'Применяю…' : 'Применить'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      {isIntegrationDeleteModalOpen && integrationDeleteTarget && selectedWorkspace && (
-        <div
-          className="workspace-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="integration-delete-title"
-        >
-          <div className="workspace-modal__content">
-            <p className="workspace-modal__eyebrow">Удаление интеграции</p>
-            <h3 id="integration-delete-title">Вы уверены?</h3>
-            <p className="workspace-modal__description">
-              Интеграция «{integrationDeleteTarget.name}» будет безвозвратно удалена, включая все связанные
-              репозитории и данные. Вы уверены, что хотите продолжить?
-            </p>
-            {integrationDeleteError && (
-              <p className="workspace-modal__error">{integrationDeleteError}</p>
-            )}
-            <div className="workspace-modal__actions">
-              <button
-                type="button"
-                onClick={handleCloseIntegrationDelete}
-                disabled={isDeletingIntegration}
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                className="workspace-modal__confirm"
-                onClick={handleConfirmIntegrationDelete}
-                disabled={isDeletingIntegration}
-              >
-                {isDeletingIntegration ? 'Удаляю…' : 'Удалить интеграцию'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {isRepositoryDeleteModalOpen && repositoryDeleteTarget && selectedWorkspace && (
-        <div
-          className="workspace-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="repository-delete-title"
-        >
-          <div className="workspace-modal__content">
-            <p className="workspace-modal__eyebrow">Удаление репозитория</p>
-            <h3 id="repository-delete-title">Вы уверены?</h3>
-            <p className="workspace-modal__description">
-              Репозиторий «{repositoryDeleteTarget.repo.full_path}» будет отсоединён от workspace и все данные
-              о синхронизации будут удалены. Вы уверены, что хотите продолжить?
-            </p>
-            {repositoryDeleteError && (
-              <p className="workspace-modal__error">{repositoryDeleteError}</p>
-            )}
-            <div className="workspace-modal__actions">
-              <button
-                type="button"
-                onClick={handleCloseRepositoryDelete}
-                disabled={isDeletingRepository}
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                className="workspace-modal__confirm"
-                onClick={handleConfirmRepositoryDelete}
-                disabled={isDeletingRepository}
-              >
-                {isDeletingRepository ? 'Удаляю…' : 'Удалить репозиторий'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {isDeleteModalOpen && selectedWorkspace && canDeleteWorkspace && (
-        <div className="workspace-modal" role="dialog" aria-modal="true" aria-labelledby="workspace-delete-title">
-          <div className="workspace-modal__content">
-            <p className="workspace-modal__eyebrow">Удаление workspace</p>
-            <h3 id="workspace-delete-title">Вы уверены?</h3>
-            <p className="workspace-modal__description">
-              Workspace «{selectedWorkspace.name}» будет бесследно удалён, включая все связанные данные. Вы уверены,
-              что хотите продолжить?
-            </p>
-            {deleteError && <p className="workspace-modal__error">{deleteError}</p>}
-            <div className="workspace-modal__actions">
-              <button type="button" onClick={() => setIsDeleteModalOpen(false)} disabled={isDeleting}>
-                Отмена
-              </button>
-              <button
-                type="button"
-                className="workspace-modal__confirm"
-                onClick={handleConfirmDelete}
-                disabled={isDeleting}
-              >
-                {isDeleting ? 'Удаляем…' : 'Удалить workspace'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {renderWorkspaceSettingsModal()}
+      {renderIntegrationSettingsModal()}
+      {renderRepositoryDeleteModal()}
+      {renderIntegrationDeleteModal()}
+      {renderWorkspaceDeleteModal()}
     </>
   )
 }
