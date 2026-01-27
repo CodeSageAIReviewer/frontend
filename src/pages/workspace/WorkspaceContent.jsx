@@ -1,10 +1,31 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { listLlmIntegrations } from '../../services/llmClient'
+import {
+  cancelReviewRun,
+  getReviewRunDetail,
+  listReviewComments,
+  listReviewRuns,
+  publishReviewRun,
+  rerunReviewRun,
+  runReview,
+} from '../../services/reviewClient'
 import { listMergeRequests, syncMergeRequests } from '../../services/workspaceClient'
 
 const statusLabelMap = {
   open: 'Open',
   merged: 'Merged',
   closed: 'Closed',
+}
+
+const reviewStatusLabelMap = {
+  queued: 'В очереди',
+  running: 'Выполняется',
+  succeeded: 'Успешно',
+  success: 'Успешно',
+  completed: 'Готово',
+  failed: 'Ошибка',
+  error: 'Ошибка',
+  canceled: 'Отменено',
 }
 
 const formatRequestDate = (isoString) => {
@@ -15,6 +36,89 @@ const formatRequestDate = (isoString) => {
     day: 'numeric',
     month: 'long',
   })
+}
+
+const formatDateTime = (isoString) => {
+  if (!isoString) {
+    return ''
+  }
+  const date = new Date(isoString)
+  if (Number.isNaN(date.getTime())) {
+    return isoString
+  }
+  return date.toLocaleString('ru-RU')
+}
+
+const formatDuration = (start, end) => {
+  if (!start || !end) {
+    return ''
+  }
+  const startTime = new Date(start).getTime()
+  const endTime = new Date(end).getTime()
+  if (Number.isNaN(startTime) || Number.isNaN(endTime) || endTime <= startTime) {
+    return ''
+  }
+  const totalSeconds = Math.floor((endTime - startTime) / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  if (minutes <= 0) {
+    return `${seconds}с`
+  }
+  return `${minutes}м ${seconds}с`
+}
+
+const buildRunLabel = (run) => {
+  if (!run) {
+    return '—'
+  }
+  const integrationName =
+    run.llm_integration_name ||
+    run.llm_name ||
+    run.integration_name ||
+    run.llm_integration?.name
+  if (integrationName) {
+    return integrationName
+  }
+  const provider = run.provider || run.llm_provider || run.llm_integration?.provider
+  const model = run.model || run.llm_model || run.llm_integration?.model
+  if (provider && model) {
+    return `${provider} · ${model}`
+  }
+  if (model) {
+    return model
+  }
+  if (provider) {
+    return provider
+  }
+  return `Review #${run.id ?? run.review_run_id ?? '—'}`
+}
+
+const buildRunSummary = (run) => {
+  if (!run) {
+    return ''
+  }
+  return (
+    run.summary ||
+    run.short_summary ||
+    run.result_summary ||
+    reviewStatusLabelMap[run.status] ||
+    run.status ||
+    ''
+  )
+}
+
+const toJsonString = (value) => {
+  if (value === null || value === undefined) {
+    return ''
+  }
+  if (typeof value === 'string') {
+    return value
+  }
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
 }
 
 function MergeRequestsCard({ workspaceId, repository }) {
@@ -29,6 +133,36 @@ function MergeRequestsCard({ workspaceId, repository }) {
   const [activeFilters, setActiveFilters] = useState({ state: '', title: '' })
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncMessage, setSyncMessage] = useState('')
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
+  const [selectedReviewMr, setSelectedReviewMr] = useState(null)
+  const [activeReviewRunId, setActiveReviewRunId] = useState(null)
+  const [selectedLlmIntegrationId, setSelectedLlmIntegrationId] = useState('')
+  const [llmIntegrations, setLlmIntegrations] = useState([])
+  const [llmIntegrationsLoading, setLlmIntegrationsLoading] = useState(false)
+  const [llmIntegrationsError, setLlmIntegrationsError] = useState('')
+  const [reviewRuns, setReviewRuns] = useState([])
+  const [reviewRunsLoading, setReviewRunsLoading] = useState(false)
+  const [reviewRunsError, setReviewRunsError] = useState('')
+  const [reviewDetail, setReviewDetail] = useState(null)
+  const [reviewDetailLoading, setReviewDetailLoading] = useState(false)
+  const [reviewDetailError, setReviewDetailError] = useState('')
+  const [reviewComments, setReviewComments] = useState([])
+  const [reviewCommentsLoading, setReviewCommentsLoading] = useState(false)
+  const [reviewCommentsError, setReviewCommentsError] = useState('')
+  const [reviewFilters, setReviewFilters] = useState({
+    severity: '',
+    commentType: '',
+    filePath: '',
+  })
+  const [actionError, setActionError] = useState('')
+  const [actionMessage, setActionMessage] = useState('')
+  const [isRunningReview, setIsRunningReview] = useState(false)
+  const [isRerunningReview, setIsRerunningReview] = useState(false)
+  const [isCancelingReview, setIsCancelingReview] = useState(false)
+  const [isPublishingReview, setIsPublishingReview] = useState(false)
+  const [reviewRefreshKey, setReviewRefreshKey] = useState(0)
+  const [queueRefreshIn, setQueueRefreshIn] = useState(0)
+  const [publishOnComplete, setPublishOnComplete] = useState(true)
 
   const handleSyncClick = useCallback(async () => {
     if (!workspaceId || !repositoryId) {
@@ -108,6 +242,392 @@ function MergeRequestsCard({ workspaceId, repository }) {
 
   const hasExtra = mergeRequests.length > 3
   const visibleRequests = showAll ? mergeRequests : mergeRequests.slice(0, 3)
+
+  const selectedMrId = useMemo(
+    () =>
+      selectedReviewMr?.id ??
+      selectedReviewMr?.external_id ??
+      selectedReviewMr?.iid ??
+      null,
+    [selectedReviewMr],
+  )
+
+  const activeReviewRun = useMemo(() => {
+    if (!reviewRuns.length) {
+      return null
+    }
+    const matched = reviewRuns.find(
+      (run) => String(run.id ?? run.review_run_id) === String(activeReviewRunId),
+    )
+    return matched ?? reviewRuns[0]
+  }, [reviewRuns, activeReviewRunId])
+
+  const availableFiles = useMemo(() => {
+    const files = new Set()
+    reviewComments.forEach((comment) => {
+      const file = comment.file_path || comment.file || comment.path
+      if (file) {
+        files.add(file)
+      }
+    })
+    return Array.from(files)
+  }, [reviewComments])
+
+  const commentCount = reviewComments.length
+  const errorCount = reviewComments.filter((comment) => comment.severity === 'error').length
+  const fileCount = availableFiles.length
+  const canCancelReview =
+    activeReviewRun?.status === 'queued' || activeReviewRun?.status === 'running'
+
+  const resetReviewState = useCallback(() => {
+    setReviewRuns([])
+    setReviewRunsError('')
+    setReviewRunsLoading(false)
+    setReviewDetail(null)
+    setReviewDetailError('')
+    setReviewDetailLoading(false)
+    setReviewComments([])
+    setReviewCommentsError('')
+    setReviewCommentsLoading(false)
+    setReviewFilters({ severity: '', commentType: '', filePath: '' })
+    setActionError('')
+    setActionMessage('')
+    setActiveReviewRunId(null)
+    setSelectedLlmIntegrationId('')
+    setLlmIntegrations([])
+    setLlmIntegrationsError('')
+    setLlmIntegrationsLoading(false)
+    setPublishOnComplete(true)
+  }, [])
+
+  const fetchReviewRuns = useCallback(
+    async (mrId, { keepActiveId = false } = {}) => {
+      if (!workspaceId || !mrId) {
+        return []
+      }
+      setReviewRunsLoading(true)
+      setReviewRunsError('')
+      try {
+        const data = await listReviewRuns(workspaceId, mrId)
+        const runs = Array.isArray(data) ? data : []
+        setReviewRuns(runs)
+        if (!keepActiveId) {
+          setActiveReviewRunId(runs[0]?.id ?? runs[0]?.review_run_id ?? null)
+        }
+        return runs
+      } catch (error) {
+        setReviewRunsError(error.message ?? 'Не удалось загрузить историю ревью.')
+        return []
+      } finally {
+        setReviewRunsLoading(false)
+      }
+    },
+    [workspaceId],
+  )
+
+  const fetchLlmList = useCallback(async () => {
+    setLlmIntegrationsLoading(true)
+    setLlmIntegrationsError('')
+    try {
+      const data = await listLlmIntegrations()
+      const integrations = Array.isArray(data) ? data : []
+      setLlmIntegrations(integrations)
+      setSelectedLlmIntegrationId((prev) => {
+        if (prev) {
+          return prev
+        }
+        if (integrations[0]?.id !== undefined) {
+          return String(integrations[0].id)
+        }
+        return ''
+      })
+    } catch (error) {
+      setLlmIntegrationsError(error.message ?? 'Не удалось загрузить LLM интеграции.')
+    } finally {
+      setLlmIntegrationsLoading(false)
+    }
+  }, [])
+
+  const handleOpenReview = useCallback(
+    (mr) => {
+      if (!mr) {
+        return
+      }
+      resetReviewState()
+      setSelectedReviewMr(mr)
+      setIsReviewModalOpen(true)
+    },
+    [resetReviewState],
+  )
+
+  const handleCloseReview = useCallback(() => {
+    setIsReviewModalOpen(false)
+    setSelectedReviewMr(null)
+    resetReviewState()
+  }, [resetReviewState])
+
+  const handleReviewItemKeyDown = useCallback(
+    (event, mr) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        handleOpenReview(mr)
+      }
+    },
+    [handleOpenReview],
+  )
+
+  const handleRunReview = useCallback(async () => {
+    if (!workspaceId || !selectedMrId || !selectedLlmIntegrationId) {
+      setActionError('Выберите LLM интеграцию перед запуском.')
+      return
+    }
+    setIsRunningReview(true)
+    setActionError('')
+    setActionMessage('')
+    try {
+      const payload = {
+        llm_integration_id: Number(selectedLlmIntegrationId),
+        publish: publishOnComplete ? 'true' : 'false',
+      }
+      const createdRun = await runReview(workspaceId, selectedMrId, payload)
+      const newRunId = createdRun?.id ?? createdRun?.review_run_id
+      await fetchReviewRuns(selectedMrId, { keepActiveId: true })
+      if (newRunId) {
+        setActiveReviewRunId(newRunId)
+      }
+      setActionMessage('Ревью запущено.')
+      setReviewRefreshKey((prev) => prev + 1)
+    } catch (error) {
+      setActionError(error.message ?? 'Не удалось запустить ревью.')
+    } finally {
+      setIsRunningReview(false)
+    }
+  }, [fetchReviewRuns, publishOnComplete, selectedLlmIntegrationId, selectedMrId, workspaceId])
+
+  const handleRerunReview = useCallback(async () => {
+    if (!workspaceId || !selectedMrId || !activeReviewRunId) {
+      return
+    }
+    setIsRerunningReview(true)
+    setActionError('')
+    setActionMessage('')
+    try {
+      const payload = {
+        publish: publishOnComplete ? 'true' : 'false',
+      }
+      if (selectedLlmIntegrationId) {
+        payload.llm_integration_id = Number(selectedLlmIntegrationId)
+      }
+      const createdRun = await rerunReviewRun(
+        workspaceId,
+        selectedMrId,
+        activeReviewRunId,
+        payload,
+      )
+      const newRunId = createdRun?.id ?? createdRun?.review_run_id
+      await fetchReviewRuns(selectedMrId, { keepActiveId: true })
+      if (newRunId) {
+        setActiveReviewRunId(newRunId)
+      }
+      setActionMessage('Ревью отправлено на повторный запуск.')
+      setReviewRefreshKey((prev) => prev + 1)
+    } catch (error) {
+      setActionError(error.message ?? 'Не удалось перезапустить ревью.')
+    } finally {
+      setIsRerunningReview(false)
+    }
+  }, [
+    activeReviewRunId,
+    fetchReviewRuns,
+    publishOnComplete,
+    selectedLlmIntegrationId,
+    selectedMrId,
+    workspaceId,
+  ])
+
+  const handleCancelReview = useCallback(async () => {
+    if (!workspaceId || !selectedMrId || !activeReviewRunId) {
+      return
+    }
+    setIsCancelingReview(true)
+    setActionError('')
+    setActionMessage('')
+    try {
+      await cancelReviewRun(workspaceId, selectedMrId, activeReviewRunId)
+      await fetchReviewRuns(selectedMrId, { keepActiveId: true })
+      setActionMessage('Ревью отменено.')
+      setReviewRefreshKey((prev) => prev + 1)
+    } catch (error) {
+      setActionError(error.message ?? 'Не удалось отменить ревью.')
+    } finally {
+      setIsCancelingReview(false)
+    }
+  }, [activeReviewRunId, fetchReviewRuns, selectedMrId, workspaceId])
+
+  const handlePublishReview = useCallback(async () => {
+    if (!workspaceId || !selectedMrId || !activeReviewRunId) {
+      return
+    }
+    setIsPublishingReview(true)
+    setActionError('')
+    setActionMessage('')
+    try {
+      const result = await publishReviewRun(workspaceId, selectedMrId, activeReviewRunId)
+      if (result && typeof result === 'object') {
+        const posted = result.posted ?? 0
+        const providerName = result.provider ? ` · ${result.provider}` : ''
+        const targetInfo =
+          result.repository_full_path && result.mr_iid
+            ? ` (${result.repository_full_path}#${result.mr_iid})`
+            : ''
+        setActionMessage(
+          `Опубликовано: ${posted}${providerName}${targetInfo}.`,
+        )
+      } else {
+        setActionMessage('Комментарии отправлены в MR.')
+      }
+      setReviewRefreshKey((prev) => prev + 1)
+    } catch (error) {
+      setActionError(error.message ?? 'Не удалось опубликовать комментарии.')
+    } finally {
+      setIsPublishingReview(false)
+    }
+  }, [activeReviewRunId, selectedMrId, workspaceId])
+
+  const handleFilterChange = useCallback((field, value) => {
+    setReviewFilters((prev) => ({ ...prev, [field]: value }))
+  }, [])
+
+  useEffect(() => {
+    if (!isReviewModalOpen) {
+      return
+    }
+    if (!workspaceId || !selectedMrId) {
+      setReviewRunsError('Недоступен ID merge request.')
+      return
+    }
+    fetchReviewRuns(selectedMrId)
+    fetchLlmList()
+  }, [fetchLlmList, fetchReviewRuns, isReviewModalOpen, selectedMrId, workspaceId])
+
+  useEffect(() => {
+    if (!isReviewModalOpen) {
+      return
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        handleCloseReview()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleCloseReview, isReviewModalOpen])
+
+  useEffect(() => {
+    if (!isReviewModalOpen || !workspaceId || !selectedMrId || !activeReviewRunId) {
+      setReviewDetail(null)
+      setReviewComments([])
+      return
+    }
+
+    let cancelled = false
+
+    const fetchDetails = async () => {
+      setReviewDetailLoading(true)
+      setReviewDetailError('')
+      try {
+        const data = await getReviewRunDetail(workspaceId, selectedMrId, activeReviewRunId)
+        if (!cancelled) {
+          setReviewDetail(data)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setReviewDetailError(error.message ?? 'Не удалось загрузить детали ревью.')
+        }
+      } finally {
+        if (!cancelled) {
+          setReviewDetailLoading(false)
+        }
+      }
+    }
+
+    const fetchComments = async () => {
+      setReviewCommentsLoading(true)
+      setReviewCommentsError('')
+      try {
+        const params = {}
+        if (reviewFilters.severity) {
+          params.severity = reviewFilters.severity
+        }
+        if (reviewFilters.commentType) {
+          params.comment_type = reviewFilters.commentType
+        }
+        if (reviewFilters.filePath) {
+          params.file_path = reviewFilters.filePath
+        }
+        const data = await listReviewComments(
+          workspaceId,
+          selectedMrId,
+          activeReviewRunId,
+          params,
+        )
+        if (!cancelled) {
+          setReviewComments(Array.isArray(data) ? data : [])
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setReviewCommentsError(error.message ?? 'Не удалось загрузить комментарии.')
+        }
+      } finally {
+        if (!cancelled) {
+          setReviewCommentsLoading(false)
+        }
+      }
+    }
+
+    fetchDetails()
+    fetchComments()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    activeReviewRunId,
+    isReviewModalOpen,
+    reviewFilters,
+    reviewRefreshKey,
+    selectedMrId,
+    workspaceId,
+  ])
+
+  useEffect(() => {
+    const shouldPoll = activeReviewRun?.status === 'queued' || activeReviewRun?.status === 'running'
+    if (!isReviewModalOpen || !workspaceId || !selectedMrId || !shouldPoll) {
+      setQueueRefreshIn(0)
+      return
+    }
+
+    setQueueRefreshIn(15)
+
+    const intervalId = window.setInterval(() => {
+      setQueueRefreshIn((prev) => {
+        if (prev <= 1) {
+          void fetchReviewRuns(selectedMrId, { keepActiveId: true })
+            .then(() => {
+              setReviewRefreshKey((current) => current + 1)
+            })
+            .catch(() => undefined)
+          return 15
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => window.clearInterval(intervalId)
+  }, [activeReviewRun?.status, fetchReviewRuns, isReviewModalOpen, selectedMrId, workspaceId])
 
   return (
     <article className="merge-requests-card">
@@ -221,17 +741,29 @@ function MergeRequestsCard({ workspaceId, repository }) {
             {visibleRequests.map((mr) => (
               <li
                 key={mr.id ?? `${mr.external_id}-${mr.iid}` ?? mr.web_url ?? mr.title}
-                className="merge-requests-list__item"
+                className="merge-requests-list__item merge-requests-list__item--clickable"
+                role="button"
+                tabIndex={0}
+                onClick={() => handleOpenReview(mr)}
+                onKeyDown={(event) => handleReviewItemKeyDown(event, mr)}
               >
                 <div className="merge-requests-list__row">
-                  <a
-                    className="merge-requests-list__title"
-                    href={mr.web_url ?? '#'}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    #{mr.iid} {mr.title}
-                  </a>
+                  <div className="merge-requests-list__title-row">
+                    <span className="merge-requests-list__title">
+                      #{mr.iid} {mr.title}
+                    </span>
+                    {mr.web_url && (
+                      <a
+                        className="merge-requests-list__external"
+                        href={mr.web_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        ↗
+                      </a>
+                    )}
+                  </div>
                   <span
                     className={`merge-requests-list__status merge-requests-list__status--${mr.state}`}
                   >
@@ -267,6 +799,358 @@ function MergeRequestsCard({ workspaceId, repository }) {
             </button>
           )}
         </>
+      )}
+      {isReviewModalOpen && selectedReviewMr && (
+        <div className="review-modal" onClick={handleCloseReview}>
+          <div
+            className="review-modal__content"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mr-review-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="review-modal__header">
+              <div>
+                <p className="review-modal__eyebrow">AI Review для merge request</p>
+                <h2 id="mr-review-title">
+                  MR #{selectedReviewMr.iid ?? selectedReviewMr.id ?? '—'} ·{' '}
+                  {selectedReviewMr.title}
+                </h2>
+                <p className="review-modal__meta">
+                  {selectedReviewMr.author_name} ·{' '}
+                  {formatRequestDate(selectedReviewMr.created_at)} ·{' '}
+                  {selectedReviewMr.source_branch} → {selectedReviewMr.target_branch}
+                </p>
+              </div>
+              <div className="review-modal__header-actions">
+                {selectedReviewMr.web_url && (
+                  <a
+                    className="review-modal__link"
+                    href={selectedReviewMr.web_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Открыть MR
+                  </a>
+                )}
+                <button type="button" className="review-modal__close" onClick={handleCloseReview}>
+                  Закрыть
+                </button>
+              </div>
+            </header>
+            <div className="review-modal__body">
+              <div className="review-sidebar">
+                <section className="review-panel">
+                  <div className="review-panel__header">
+                    <h3>Запуск AI-ревью</h3>
+                    <span
+                      className={`review-status review-status--${
+                        activeReviewRun?.status ?? 'info'
+                      }`}
+                    >
+                      {activeReviewRun?.status
+                        ? reviewStatusLabelMap[activeReviewRun.status] ??
+                          activeReviewRun.status
+                        : 'Нет запусков'}
+                    </span>
+                  </div>
+                  <label className="review-field">
+                    <span>LLM интеграция</span>
+                    <select
+                      value={selectedLlmIntegrationId}
+                      onChange={(event) => setSelectedLlmIntegrationId(event.target.value)}
+                      disabled={llmIntegrationsLoading || llmIntegrations.length === 0}
+                    >
+                      <option value="">Выберите интеграцию</option>
+                      {llmIntegrations.map((integration) => (
+                        <option key={integration.id} value={String(integration.id)}>
+                          {integration.name ?? buildRunLabel(integration)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {llmIntegrationsLoading && (
+                    <p className="review-empty">Загружаю список интеграций…</p>
+                  )}
+                  {llmIntegrationsError && (
+                    <p className="review-error">{llmIntegrationsError}</p>
+                  )}
+                  {!llmIntegrationsLoading &&
+                    !llmIntegrationsError &&
+                    llmIntegrations.length === 0 && (
+                      <p className="review-empty">
+                        У вас пока нет LLM интеграций. Добавьте их в разделе LLM.
+                      </p>
+                    )}
+                  <div className="review-panel__actions">
+                    <button
+                      type="button"
+                      className="review-action"
+                      onClick={handleRunReview}
+                      disabled={!selectedLlmIntegrationId || isRunningReview}
+                    >
+                      {isRunningReview ? 'Запускаю…' : 'Run AI Review'}
+                    </button>
+                    <button
+                      type="button"
+                      className="review-action review-action--ghost"
+                      onClick={handleRerunReview}
+                      disabled={!activeReviewRunId || isRerunningReview}
+                    >
+                      {isRerunningReview ? 'Перезапускаю…' : 'Re-run'}
+                    </button>
+                  </div>
+                  <label className="review-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={publishOnComplete}
+                      onChange={(event) => setPublishOnComplete(event.target.checked)}
+                    />
+                    <span>Публиковать комментарии после завершения</span>
+                  </label>
+                  <p className="review-panel__hint">
+                    Запуск создаст новую запись в истории ревью. Здесь появится статус и
+                    результаты.
+                  </p>
+                  {(activeReviewRun?.status === 'queued' ||
+                    activeReviewRun?.status === 'running') &&
+                    queueRefreshIn > 0 && (
+                      <p className="review-queue-timer">
+                        Обновление статуса через {queueRefreshIn}с
+                      </p>
+                    )}
+                  {actionError && <p className="review-error">{actionError}</p>}
+                  {actionMessage && <p className="review-success">{actionMessage}</p>}
+                </section>
+                <section className="review-panel">
+                  <div className="review-panel__header">
+                    <h3>История запусков</h3>
+                    <span className="review-panel__count">{reviewRuns.length}</span>
+                  </div>
+                  {reviewRunsLoading ? (
+                    <p className="review-empty">Загружаю историю ревью…</p>
+                  ) : reviewRunsError ? (
+                    <p className="review-error">{reviewRunsError}</p>
+                  ) : reviewRuns.length === 0 ? (
+                    <p className="review-empty">Запусков пока нет.</p>
+                  ) : (
+                    <div className="review-runs">
+                      {reviewRuns.map((run, index) => {
+                        const runId = run.id ?? run.review_run_id
+                        const hasRunId = runId !== undefined && runId !== null
+                        const isActive =
+                          runId !== undefined &&
+                          String(runId) === String(activeReviewRunId)
+                        return (
+                          <button
+                            key={String(runId ?? `run-${index}`)}
+                            type="button"
+                            className={`review-run ${isActive ? 'review-run--active' : ''}`}
+                            onClick={() => hasRunId && setActiveReviewRunId(runId)}
+                            disabled={!hasRunId}
+                          >
+                            <div className="review-run__top">
+                              <span
+                                className={`review-status review-status--${run.status}`}
+                              >
+                                {reviewStatusLabelMap[run.status] ?? run.status}
+                              </span>
+                              <span className="review-run__date">
+                                {formatDateTime(
+                                  run.created_at || run.queued_at || run.started_at,
+                                ) || '—'}
+                              </span>
+                            </div>
+                            <p className="review-run__title">{buildRunLabel(run)}</p>
+                            <p className="review-run__summary">
+                              {buildRunSummary(run) || '—'}
+                            </p>
+                            <span className="review-run__duration">
+                              {run.duration ||
+                                formatDuration(run.started_at, run.finished_at) ||
+                                '—'}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </section>
+              </div>
+              <section className="review-panel review-panel--details">
+                <div className="review-panel__header">
+                  <div>
+                    <h3>Детали ревью</h3>
+                    <p className="review-panel__subtitle">
+                      {buildRunLabel(activeReviewRun)} ·{' '}
+                      {formatDateTime(
+                        activeReviewRun?.created_at ||
+                          activeReviewRun?.queued_at ||
+                          activeReviewRun?.started_at,
+                      ) || '—'}
+                    </p>
+                  </div>
+                  <div className="review-panel__actions review-panel__actions--inline">
+                    {canCancelReview && (
+                      <button
+                        type="button"
+                        className="review-action review-action--ghost"
+                        onClick={handleCancelReview}
+                        disabled={isCancelingReview}
+                      >
+                        {isCancelingReview ? 'Отменяю…' : 'Cancel'}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="review-action"
+                      onClick={handlePublishReview}
+                      disabled={!activeReviewRunId || isPublishingReview}
+                    >
+                      {isPublishingReview ? 'Публикую…' : 'Publish to MR'}
+                    </button>
+                  </div>
+                </div>
+                {reviewDetailLoading && <p className="review-empty">Загружаю детали…</p>}
+                {reviewDetailError && <p className="review-error">{reviewDetailError}</p>}
+                <div className="review-summary">
+                  <div className="review-summary__card">
+                    <p>Статус</p>
+                    <strong>
+                      {activeReviewRun?.status
+                        ? reviewStatusLabelMap[activeReviewRun.status]
+                        : '—'}
+                    </strong>
+                  </div>
+                  <div className="review-summary__card">
+                    <p>Комментарии</p>
+                    <strong>{commentCount}</strong>
+                  </div>
+                  <div className="review-summary__card">
+                    <p>Файлы</p>
+                    <strong>{fileCount}</strong>
+                  </div>
+                  <div className="review-summary__card">
+                    <p>Серьёзные</p>
+                    <strong>{errorCount}</strong>
+                  </div>
+                </div>
+                <div className="review-filters">
+                  <label>
+                    Severity
+                    <select
+                      value={reviewFilters.severity}
+                      onChange={(event) => handleFilterChange('severity', event.target.value)}
+                    >
+                      <option value="">All</option>
+                      <option value="error">Error</option>
+                      <option value="warning">Warning</option>
+                      <option value="info">Info</option>
+                    </select>
+                  </label>
+                  <label>
+                    Type
+                    <select
+                      value={reviewFilters.commentType}
+                      onChange={(event) =>
+                        handleFilterChange('commentType', event.target.value)
+                      }
+                    >
+                      <option value="">All</option>
+                      <option value="general">General</option>
+                      <option value="code_smell">Code smell</option>
+                      <option value="bug">Bug</option>
+                      <option value="security">Security</option>
+                      <option value="performance">Performance</option>
+                      <option value="style">Style</option>
+                      <option value="tests">Tests</option>
+                      <option value="documentation">Documentation</option>
+                    </select>
+                  </label>
+                  <label>
+                    File
+                    <select
+                      value={reviewFilters.filePath}
+                      onChange={(event) =>
+                        handleFilterChange('filePath', event.target.value)
+                      }
+                    >
+                      <option value="">All files</option>
+                      {availableFiles.map((file) => (
+                        <option key={file} value={file}>
+                          {file}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                {reviewCommentsLoading ? (
+                  <p className="review-empty">Загружаю комментарии…</p>
+                ) : reviewCommentsError ? (
+                  <p className="review-error">{reviewCommentsError}</p>
+                ) : reviewComments.length === 0 ? (
+                  <p className="review-empty">Комментариев пока нет.</p>
+                ) : (
+                  <div className="review-comments">
+                    {reviewComments.map((comment, index) => {
+                      const commentId = comment.id ?? `comment-${index}`
+                      const severity = comment.severity ?? 'info'
+                      const type = comment.comment_type || comment.type || 'general'
+                      const file = comment.file_path || comment.file || comment.path
+                      const line = comment.line ?? comment.line_number
+                      const postedToVcs = Boolean(comment.posted_to_vcs)
+                      const message =
+                        comment.message ||
+                        comment.text ||
+                        comment.body ||
+                        comment.content ||
+                        ''
+                      return (
+                        <div key={commentId} className="review-comment">
+                          <div className="review-comment__header">
+                            <span
+                              className={`review-comment__badge review-comment__badge--${severity}`}
+                            >
+                              {severity}
+                            </span>
+                            <span className="review-comment__type">{type}</span>
+                            <span className="review-comment__file">
+                              {file || '—'}
+                              {line ? `:${line}` : ''}
+                            </span>
+                            <span
+                              className={`review-comment__posted ${
+                                postedToVcs ? '' : 'review-comment__posted--no'
+                              }`}
+                            >
+                              {postedToVcs ? 'Опубликован' : 'Не опубликован'}
+                            </span>
+                          </div>
+                          <p className="review-comment__text">{message}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                <div className="review-output">
+                  <h4>Structured output</h4>
+                  <pre>
+                    {toJsonString(
+                      reviewDetail?.structured_output ?? reviewDetail?.structured ?? '',
+                    ) || 'Нет данных'}
+                  </pre>
+                </div>
+                <div className="review-output">
+                  <h4>Raw output</h4>
+                  <pre>
+                    {toJsonString(reviewDetail?.raw_output ?? reviewDetail?.raw_response ?? '') ||
+                      'Нет данных'}
+                  </pre>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
       )}
     </article>
   )
