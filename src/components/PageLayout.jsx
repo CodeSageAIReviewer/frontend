@@ -249,6 +249,9 @@ function PageLayout({ children }) {
             <Link to="/landing">CodeSage</Link>
           </div>
           <div className="site-navbar__actions">
+            <Link to="/docs" className="nav-button nav-button--ghost">
+              Docs
+            </Link>
             {isAuthenticated && (
               <button
                 type="button"

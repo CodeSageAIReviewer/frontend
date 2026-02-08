@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import './App.css'
 import AuthPage from './pages/AuthPage'
+import DocsPage from './pages/DocsPage'
 import LandingPage from './pages/LandingPage'
 import WorkspacePage from './pages/WorkspacePage'
 import { AuthProvider } from './context/AuthContext'
@@ -14,6 +15,7 @@ function App() {
           <PageLayout>
             <Routes>
               <Route path="/landing" element={<LandingPage />} />
+              <Route path="/docs" element={<DocsPage />} />
               <Route path="/workspace" element={<WorkspacePage />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="*" element={<Navigate to="/landing" replace />} />
