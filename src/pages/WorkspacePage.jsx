@@ -28,6 +28,8 @@ const initialIntegrationForm = {
 
 function WorkspacePage() {
   const [workspaces, setWorkspaces] = useState([])
+  const [workspacesLoading, setWorkspacesLoading] = useState(false)
+  const [workspacesError, setWorkspacesError] = useState('')
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(null)
   const [creatingWorkspace, setCreatingWorkspace] = useState(false)
   const [newWorkspaceName, setNewWorkspaceName] = useState('')
@@ -112,12 +114,18 @@ function WorkspacePage() {
   const canEditWorkspace = canDeleteWorkspace
 
   const fetchWorkspaces = useCallback(async () => {
+    setWorkspacesLoading(true)
+    setWorkspacesError('')
     try {
       const data = (await listWorkspaces()) ?? []
       setWorkspaces(data)
       setSelectedWorkspaceId((prev) => prev ?? data?.[0]?.id ?? null)
     } catch (error) {
-      console.error(error)
+      setWorkspaces([])
+      setSelectedWorkspaceId(null)
+      setWorkspacesError(error.message ?? 'Не удалось загрузить список workspaces.')
+    } finally {
+      setWorkspacesLoading(false)
     }
   }, [])
 
@@ -372,6 +380,7 @@ function WorkspacePage() {
   }
 
   const handleBeginWorkspaceCreate = () => {
+    setWorkspacesError('')
     setCreatingWorkspace(true)
     setSelectedWorkspaceId(null)
     setActiveNode({ type: 'workspace', id: null, workspaceId: null, label: '' })
@@ -957,6 +966,8 @@ function WorkspacePage() {
       <main className="workspace-page">
         <WorkspaceSidebar
           workspaces={workspaces}
+          workspacesLoading={workspacesLoading}
+          workspacesError={workspacesError}
           selectedWorkspaceId={selectedWorkspaceId}
           activeNode={activeNode}
           integrations={integrations}
@@ -978,12 +989,15 @@ function WorkspacePage() {
           handleRepoSelect={handleRepoSelect}
           onWorkspaceSelect={handleWorkspaceSelect}
           onCreateWorkspaceClick={handleBeginWorkspaceCreate}
+          onRetryWorkspaces={fetchWorkspaces}
           savedRepositories={savedRepositories}
           savedRepositoriesLoading={savedRepositoriesLoading}
           savedRepositoriesError={savedRepositoriesError}
           onOpenRepositoryModal={handleOpenRepositoryModal}
         />
         <WorkspaceContent
+          workspacesLoading={workspacesLoading}
+          workspacesError={workspacesError}
           creatingWorkspace={creatingWorkspace}
           newWorkspaceName={newWorkspaceName}
           onNewWorkspaceNameChange={setNewWorkspaceName}
@@ -1003,6 +1017,7 @@ function WorkspacePage() {
           onRepositoryDelete={handleOpenRepositoryDelete}
           onSettingsClick={handleOpenWorkspaceSettings}
           onDeleteClick={() => setIsDeleteModalOpen(true)}
+          onRetryWorkspaces={fetchWorkspaces}
           isSubmitting={isSubmitting}
         />
       </main>

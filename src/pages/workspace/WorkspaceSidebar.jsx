@@ -2,6 +2,8 @@ import IntegrationSection from './IntegrationSection'
 
 function WorkspaceSidebar({
   workspaces,
+  workspacesLoading,
+  workspacesError,
   selectedWorkspaceId,
   activeNode,
   integrations,
@@ -22,6 +24,7 @@ function WorkspaceSidebar({
   handleRepoSelect,
   onWorkspaceSelect,
   onCreateWorkspaceClick,
+  onRetryWorkspaces,
   integrationFormError,
   onOpenRepositoryModal,
   savedRepositories,
@@ -49,8 +52,32 @@ function WorkspaceSidebar({
       </div>
 
       <ul className="workspace-tree">
-        {workspaces.map((workspace) => {
-        const isWorkspaceActive = activeNode.workspaceId === workspace.id
+        {workspacesLoading && (
+          <li className="workspace-sidebar__status workspace-sidebar__status--loading">
+            Загружаем workspaces…
+          </li>
+        )}
+
+        {!workspacesLoading && workspacesError && (
+          <li className="workspace-sidebar__status workspace-sidebar__status--error">
+            <p>{workspacesError}</p>
+            <button type="button" onClick={onRetryWorkspaces}>
+              Повторить
+            </button>
+          </li>
+        )}
+
+        {!workspacesLoading && !workspacesError && workspaces.length === 0 && (
+          <li className="workspace-sidebar__status workspace-sidebar__status--empty">
+            <p>Пока нет ни одного workspace.</p>
+            <button type="button" onClick={onCreateWorkspaceClick}>
+              Создать workspace
+            </button>
+          </li>
+        )}
+
+        {!workspacesLoading && !workspacesError && workspaces.map((workspace) => {
+          const isWorkspaceActive = activeNode.workspaceId === workspace.id
           return (
             <li key={workspace.id} className="workspace-tree__item">
               <button

@@ -157,6 +157,41 @@
   gap: 8px;
 }
 
+.workspace-sidebar__status {
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #f8fafc;
+  padding: 0.75rem;
+  color: #334155;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.workspace-sidebar__status p {
+  margin: 0;
+}
+
+.workspace-sidebar__status--loading {
+  color: #0284c7;
+}
+
+.workspace-sidebar__status--error {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.08);
+  color: #b91c1c;
+}
+
+.workspace-sidebar__status button {
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 600;
+  padding: 0.35rem 0.8rem;
+  justify-self: flex-start;
+  cursor: pointer;
+}
+
 .integration-header {
   display: flex;
   justify-content: space-between;
@@ -1839,18 +1874,26 @@
 
   .workspace-sidebar {
     width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
+    max-width: none;
+    min-width: 0;
+    flex-direction: column;
+    gap: 16px;
+    border-radius: 24px;
+    padding: 20px 16px;
+    position: static;
+    max-height: none;
+    overflow: visible;
   }
 
   .workspace-sidebar__header {
-    flex: 1 1 100%;
+    flex: none;
   }
 
   .workspace-tree {
-    flex-direction: row;
-    overflow-x: auto;
-    padding-bottom: 10px;
+    flex-direction: column;
+    overflow: visible;
+    padding-bottom: 0;
+    flex: none;
   }
 
   .workspace-tree__button {
@@ -1859,6 +1902,8 @@
 
   .workspace-content {
     padding: 32px 20px;
+    margin-left: 0;
+    border-left: none;
   }
 }
 

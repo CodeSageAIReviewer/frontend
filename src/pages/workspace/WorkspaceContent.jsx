@@ -1157,6 +1157,8 @@ function MergeRequestsCard({ workspaceId, repository }) {
 }
 
 function WorkspaceContent({
+  workspacesLoading,
+  workspacesError,
   creatingWorkspace,
   newWorkspaceName,
   onNewWorkspaceNameChange,
@@ -1177,6 +1179,7 @@ function WorkspaceContent({
   onIntegrationSettings,
   onIntegrationDelete,
   onRepositoryDelete,
+  onRetryWorkspaces,
 }) {
   const activeRepository =
     activeNode?.type === 'repository' ? activeNode.repository : null
@@ -1222,9 +1225,6 @@ function WorkspaceContent({
                 {selectedWorkspace && (
                   <>
                     <div className="workspace-panel__actions">
-                      {activeNode?.type === 'workspace' && (
-                        <button type="button">Добавить участника</button>
-                      )}
                       {canEditWorkspace && activeNode?.type === 'workspace' && (
                         <button type="button" onClick={onSettingsClick}>
                           Настройки
@@ -1307,14 +1307,30 @@ function WorkspaceContent({
                     <rect x="30" y="56" width="32" height="4" rx="2" fill="#ffffff" />
                   </svg>
                 </div>
-                <h3>Workspace не выбран</h3>
+                <h3>
+                  {workspacesLoading
+                    ? 'Загружаем workspaces'
+                    : workspacesError
+                      ? 'Workspaces недоступны'
+                      : 'Workspace не выбран'}
+                </h3>
                 <p className="workspace-empty__description">
-                  Пора создать пространство и привести все задачи в одну панель.
+                  {workspacesLoading
+                    ? 'Подождите пару секунд, список рабочих пространств скоро появится.'
+                    : workspacesError
+                      ? 'Не удалось получить список рабочих пространств. Попробуйте снова.'
+                      : 'Пора создать пространство и привести все задачи в одну панель.'}
                 </p>
                 <div className="workspace-empty__actions">
-                  <button type="button" onClick={onStartCreate}>
-                    + Создать workspace
-                  </button>
+                  {workspacesError ? (
+                    <button type="button" onClick={onRetryWorkspaces}>
+                      Повторить загрузку
+                    </button>
+                  ) : (
+                    <button type="button" onClick={onStartCreate}>
+                      + Создать workspace
+                    </button>
+                  )}
                 </div>
               </div>
             )}
