@@ -18,10 +18,15 @@ import WorkspaceContent from './workspace/WorkspaceContent'
 import RepositoryPickerModal from './workspace/RepositoryPickerModal'
 import './WorkspacePage.css'
 
+const integrationProviderDefaults = {
+  github: 'https://api.github.com',
+  gitlab: 'https://gitlab.com/api/v4',
+}
+
 const initialIntegrationForm = {
   name: '',
   provider: 'github',
-  base_url: '',
+  base_url: integrationProviderDefaults.github,
   access_token: '',
   refresh_token: '',
 }
@@ -259,7 +264,6 @@ function WorkspacePage() {
       setNewWorkspaceName('')
     } catch (error) {
       setFormError(error.message ?? 'Что-то пошло не так.')
-      console.error(error)
     } finally {
       setIsSubmitting(false)
     }
@@ -278,7 +282,6 @@ function WorkspacePage() {
       await fetchWorkspaces()
     } catch (error) {
       setDeleteError(error.message ?? 'Не удалось удалить workspace.')
-      console.error(error)
     } finally {
       setIsDeleting(false)
     }
@@ -337,7 +340,23 @@ function WorkspacePage() {
   }
 
   const handleIntegrationFormChange = (field, value) => {
-    setIntegrationForm((prev) => ({ ...prev, [field]: value }))
+    setIntegrationForm((prev) => {
+      if (field !== 'provider') {
+        return { ...prev, [field]: value }
+      }
+
+      const previousProvider = prev.provider
+      const previousDefault = integrationProviderDefaults[previousProvider] ?? ''
+      const nextDefault = integrationProviderDefaults[value] ?? ''
+      const normalizedBaseUrl = prev.base_url.trim()
+      const shouldApplyDefault = !normalizedBaseUrl || normalizedBaseUrl === previousDefault
+
+      return {
+        ...prev,
+        provider: value,
+        base_url: shouldApplyDefault ? nextDefault : prev.base_url,
+      }
+    })
   }
 
   const handleCreateIntegration = async (event) => {
@@ -689,20 +708,20 @@ function WorkspacePage() {
     if (activeNode.type === 'integration') {
       return {
         title: activeNode.label,
-        subtitle: `Integration under ${selectedWorkspace?.name ?? 'workspace'}`,
+        subtitle: `Интеграция в ${selectedWorkspace?.name ?? 'рабочем пространстве'}`,
         body: '',
       }
     }
     if (activeNode.type === 'repository') {
       return {
         title: activeNode.label,
-        subtitle: `Repository inside ${activeNode.parent ?? 'workspace'}`,
+        subtitle: `Репозиторий в ${activeNode.parent ?? 'рабочем пространстве'}`,
         body: '',
       }
     }
     return {
-      title: activeNode.label || 'Active workspace',
-      subtitle: activeNode.label ? 'Workspace overview' : '',
+      title: activeNode.label || 'Активное рабочее пространство',
+      subtitle: activeNode.label ? 'Обзор рабочего пространства' : '',
       body: selectedWorkspace
         ? `Управляйте участниками, настройками и историями для ${selectedWorkspace.name}.`
         : 'Выберите workspace или создайте новый, чтобы начать.',
@@ -724,12 +743,13 @@ function WorkspacePage() {
         aria-labelledby="workspace-settings-title"
       >
         <div className="workspace-modal__content">
-          <p className="workspace-modal__eyebrow">Настройки workspace</p>
+          <p className="workspace-modal__eyebrow">Настройки пространства</p>
           <h3 id="workspace-settings-title">Обновить рабочее пространство</h3>
           <form className="workspace-modal__form" onSubmit={handleUpdateWorkspace}>
-            <label className="workspace-modal__field">
-              <span>Название workspace</span>
+            <label className="workspace-modal__field ui-field">
+              <span>Название рабочего пространства</span>
               <input
+                className="ui-input"
                 type="text"
                 value={workspaceSettingsName}
                 maxLength={255}
@@ -738,14 +758,14 @@ function WorkspacePage() {
                 autoFocus
               />
             </label>
-            {settingsError && <p className="workspace-modal__error">{settingsError}</p>}
+            {settingsError && <p className="workspace-modal__error ui-status ui-status--danger">{settingsError}</p>}
             <div className="workspace-modal__actions">
-              <button type="button" onClick={handleCloseWorkspaceSettings} disabled={isUpdatingWorkspace}>
+              <button type="button" className="ui-btn ui-btn--secondary" onClick={handleCloseWorkspaceSettings} disabled={isUpdatingWorkspace}>
                 Отмена
               </button>
               <button
                 type="submit"
-                className="workspace-modal__submit"
+                className="workspace-modal__submit ui-btn ui-btn--primary"
                 disabled={isUpdatingWorkspace}
               >
                 {isUpdatingWorkspace ? 'Применяю…' : 'Применить'}
@@ -772,9 +792,10 @@ function WorkspacePage() {
           <p className="workspace-modal__eyebrow">Настройки интеграции</p>
           <h3 id="integration-settings-title">{integrationSettingsTarget.name}</h3>
           <form className="workspace-modal__form" onSubmit={handleUpdateIntegration}>
-            <label className="workspace-modal__field">
+            <label className="workspace-modal__field ui-field">
               <span>Название</span>
               <input
+                className="ui-input"
                 type="text"
                 value={integrationSettingsForm.name}
                 onChange={(event) =>
@@ -784,9 +805,10 @@ function WorkspacePage() {
                 autoFocus
               />
             </label>
-            <label className="workspace-modal__field">
-              <span>Base URL</span>
+            <label className="workspace-modal__field ui-field">
+              <span>Базовый URL</span>
               <input
+                className="ui-input"
                 type="url"
                 value={integrationSettingsForm.base_url}
                 onChange={(event) =>
@@ -795,9 +817,10 @@ function WorkspacePage() {
                 placeholder="https://git.example.com"
               />
             </label>
-            <label className="workspace-modal__field">
-              <span>Access token</span>
+            <label className="workspace-modal__field ui-field">
+              <span>Токен доступа</span>
               <input
+                className="ui-input"
                 type="password"
                 value={integrationSettingsForm.access_token}
                 onChange={(event) =>
@@ -805,9 +828,10 @@ function WorkspacePage() {
                 }
               />
             </label>
-            <label className="workspace-modal__field">
-              <span>Refresh token</span>
+            <label className="workspace-modal__field ui-field">
+              <span>Токен обновления</span>
               <input
+                className="ui-input"
                 type="password"
                 value={integrationSettingsForm.refresh_token}
                 onChange={(event) =>
@@ -819,11 +843,12 @@ function WorkspacePage() {
               Оставьте токены пустыми, чтобы не менять их.
             </p>
             {integrationSettingsError && (
-              <p className="workspace-modal__error">{integrationSettingsError}</p>
+              <p className="workspace-modal__error ui-status ui-status--danger">{integrationSettingsError}</p>
             )}
             <div className="workspace-modal__actions">
               <button
                 type="button"
+                className="ui-btn ui-btn--secondary"
                 onClick={handleCloseIntegrationSettings}
                 disabled={isUpdatingIntegration}
               >
@@ -831,7 +856,7 @@ function WorkspacePage() {
               </button>
               <button
                 type="submit"
-                className="workspace-modal__submit"
+                className="workspace-modal__submit ui-btn ui-btn--primary"
                 disabled={isUpdatingIntegration}
               >
                 {isUpdatingIntegration ? 'Применяю…' : 'Применить'}
@@ -857,16 +882,17 @@ function WorkspacePage() {
         <div className="workspace-modal__content">
           <p className="workspace-modal__eyebrow">Удаление репозитория</p>
           <h3 id="repository-delete-title">Вы уверены?</h3>
-          <p className="workspace-modal__description">
+          <p className="workspace-modal__description workspace-modal__description--danger">
             Репозиторий «{repositoryDeleteTarget.repo?.full_path}» будет отсоединён от workspace и все данные
             о синхронизации будут удалены. Вы уверены, что хотите продолжить?
           </p>
           {repositoryDeleteError && (
-            <p className="workspace-modal__error">{repositoryDeleteError}</p>
+            <p className="workspace-modal__error ui-status ui-status--danger">{repositoryDeleteError}</p>
           )}
           <div className="workspace-modal__actions">
             <button
               type="button"
+              className="ui-btn ui-btn--secondary"
               onClick={handleCloseRepositoryDelete}
               disabled={isDeletingRepository}
             >
@@ -874,7 +900,7 @@ function WorkspacePage() {
             </button>
             <button
               type="button"
-              className="workspace-modal__confirm"
+              className="workspace-modal__confirm workspace-modal__confirm--danger ui-btn"
               onClick={handleConfirmRepositoryDelete}
               disabled={isDeletingRepository}
             >
@@ -900,16 +926,17 @@ function WorkspacePage() {
         <div className="workspace-modal__content">
           <p className="workspace-modal__eyebrow">Удаление интеграции</p>
           <h3 id="integration-delete-title">Вы уверены?</h3>
-          <p className="workspace-modal__description">
+          <p className="workspace-modal__description workspace-modal__description--danger">
             Интеграция «{integrationDeleteTarget.name}» будет безвозвратно удалена, включая все связанные
             репозитории и данные. Вы уверены, что хотите продолжить?
           </p>
           {integrationDeleteError && (
-            <p className="workspace-modal__error">{integrationDeleteError}</p>
+            <p className="workspace-modal__error ui-status ui-status--danger">{integrationDeleteError}</p>
           )}
           <div className="workspace-modal__actions">
             <button
               type="button"
+              className="ui-btn ui-btn--secondary"
               onClick={handleCloseIntegrationDelete}
               disabled={isDeletingIntegration}
             >
@@ -917,7 +944,7 @@ function WorkspacePage() {
             </button>
             <button
               type="button"
-              className="workspace-modal__confirm"
+              className="workspace-modal__confirm workspace-modal__confirm--danger ui-btn"
               onClick={handleConfirmIntegrationDelete}
               disabled={isDeletingIntegration}
             >
@@ -938,18 +965,18 @@ function WorkspacePage() {
         <div className="workspace-modal__content">
           <p className="workspace-modal__eyebrow">Удаление workspace</p>
           <h3 id="workspace-delete-title">Вы уверены?</h3>
-          <p className="workspace-modal__description">
-            Workspace «{selectedWorkspace.name}» будет бесследно удалён, включая все связанные данные. Вы уверены,
+          <p className="workspace-modal__description workspace-modal__description--danger">
+            Рабочее пространство «{selectedWorkspace.name}» будет бесследно удалено, включая все связанные данные. Вы уверены,
             что хотите продолжить?
           </p>
-          {deleteError && <p className="workspace-modal__error">{deleteError}</p>}
+          {deleteError && <p className="workspace-modal__error ui-status ui-status--danger">{deleteError}</p>}
           <div className="workspace-modal__actions">
-            <button type="button" onClick={() => setIsDeleteModalOpen(false)} disabled={isDeleting}>
+            <button type="button" className="ui-btn ui-btn--secondary" onClick={() => setIsDeleteModalOpen(false)} disabled={isDeleting}>
               Отмена
             </button>
             <button
               type="button"
-              className="workspace-modal__confirm"
+              className="workspace-modal__confirm workspace-modal__confirm--danger ui-btn"
               onClick={handleConfirmDelete}
               disabled={isDeleting}
             >
@@ -982,7 +1009,6 @@ function WorkspacePage() {
           handleIntegrationFormChange={handleIntegrationFormChange}
           handleCreateIntegration={handleCreateIntegration}
           isSubmittingIntegration={isSubmittingIntegration}
-          openRepos={openRepos}
           toggleRepos={toggleRepos}
           isRepoOpen={isRepoOpen}
           handleIntegrationSelect={handleIntegrationSelect}

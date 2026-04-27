@@ -1,8 +1,7 @@
-import { createContext, useContext, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import Cookies from 'js-cookie'
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from '../constants/tokenKeys'
-
-const AuthContext = createContext(null)
+import AuthContext from './authProviderContext'
 
 const getTokensFromCookies = () => ({
   access_token: Cookies.get(ACCESS_TOKEN_KEY) ?? '',
@@ -69,12 +68,4 @@ export const AuthProvider = ({ children }) => {
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
-
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
 }

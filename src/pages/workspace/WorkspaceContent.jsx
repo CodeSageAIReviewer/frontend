@@ -12,9 +12,9 @@ import {
 import { listMergeRequests, syncMergeRequests } from '../../services/workspaceClient'
 
 const statusLabelMap = {
-  open: 'Open',
-  merged: 'Merged',
-  closed: 'Closed',
+  open: 'Открыт',
+  merged: 'Слит',
+  closed: 'Закрыт',
 }
 
 const reviewStatusLabelMap = {
@@ -90,7 +90,7 @@ const buildRunLabel = (run) => {
   if (provider) {
     return provider
   }
-  return `Review #${run.id ?? run.review_run_id ?? '—'}`
+  return `Ревью #${run.id ?? run.review_run_id ?? '—'}`
 }
 
 const buildRunSummary = (run) => {
@@ -278,6 +278,17 @@ function MergeRequestsCard({ workspaceId, repository }) {
   const fileCount = availableFiles.length
   const canCancelReview =
     activeReviewRun?.status === 'queued' || activeReviewRun?.status === 'running'
+  const reviewRunStatus = activeReviewRun?.status ?? ''
+  const isReviewRunActive = reviewRunStatus === 'queued' || reviewRunStatus === 'running'
+  const isReviewRunFinished =
+    reviewRunStatus === 'succeeded' ||
+    reviewRunStatus === 'success' ||
+    reviewRunStatus === 'completed'
+  const isReviewPublished = Boolean(
+    activeReviewRun?.published_at ||
+      activeReviewRun?.is_published ||
+      reviewComments.some((comment) => Boolean(comment.posted_to_vcs)),
+  )
 
   const resetReviewState = useCallback(() => {
     setReviewRuns([])
@@ -633,12 +644,12 @@ function MergeRequestsCard({ workspaceId, repository }) {
     <article className="merge-requests-card">
       <header className="merge-requests-card__header">
         <div>
-          <p className="merge-requests-card__label">MERGE REQUESTS FROM GITLAB/GITHUB</p>
-          <h2>Merge Requests</h2>
+          <p className="merge-requests-card__label">ЗАПРОСЫ НА СЛИЯНИЕ ИЗ GITLAB/GITHUB</p>
+          <h2>Запросы на слияние</h2>
         </div>
         <button
           type="button"
-          className="merge-requests-card__sync"
+          className="merge-requests-card__sync ui-btn ui-btn--secondary"
           onClick={handleSyncClick}
           disabled={loading || isSyncing}
         >
@@ -665,6 +676,7 @@ function MergeRequestsCard({ workspaceId, repository }) {
         <label className="merge-requests-card__filter">
           <span>Статус</span>
           <select
+            className="ui-select"
             value={pendingStateFilter}
             onChange={(event) => {
               setPendingStateFilter(event.target.value)
@@ -672,23 +684,24 @@ function MergeRequestsCard({ workspaceId, repository }) {
             }}
           >
             <option value="">Все</option>
-            <option value="open">Open</option>
-            <option value="merged">Merged</option>
-            <option value="closed">Closed</option>
+            <option value="open">Открыт</option>
+            <option value="merged">Слит</option>
+            <option value="closed">Закрыт</option>
           </select>
         </label>
         <label className="merge-requests-card__filter merge-requests-card__filter--wide">
           <span>По названию</span>
           <input
+            className="ui-input"
             type="text"
-            placeholder="Search by title"
+            placeholder="Поиск по названию"
             value={pendingTitleFilter}
             onChange={(event) => setPendingTitleFilter(event.target.value)}
           />
         </label>
         <button
           type="button"
-          className="merge-requests-card__apply"
+          className="merge-requests-card__apply ui-btn ui-btn--secondary"
           onClick={handleApplyFilters}
           disabled={loading || isSyncing}
         >
@@ -703,7 +716,7 @@ function MergeRequestsCard({ workspaceId, repository }) {
       )}
       {loading ? (
         <p className="merge-requests-card__status merge-requests-card__status--loading">
-          Загружаю merge requests…
+          Загружаю запросы на слияние…
         </p>
       ) : error ? (
         <p className="merge-requests-card__status merge-requests-card__status--error">{error}</p>
@@ -721,14 +734,14 @@ function MergeRequestsCard({ workspaceId, repository }) {
             </svg>
           </div>
           <p className="merge-requests-card__empty-title">
-            В этом репозитории нет merge requests.
+            В этом репозитории нет запросов на слияние.
           </p>
           <p className="merge-requests-card__empty-body">
             Синхронизируйте информацию, чтобы увидеть последние запросы на слияние.
           </p>
           <button
             type="button"
-            className="merge-requests-card__empty-action"
+            className="merge-requests-card__empty-action ui-btn ui-btn--secondary"
             onClick={handleSyncClick}
             disabled={loading || isSyncing}
           >
@@ -738,9 +751,19 @@ function MergeRequestsCard({ workspaceId, repository }) {
       ) : (
         <>
           <ul className="merge-requests-list">
-            {visibleRequests.map((mr) => (
+            {visibleRequests.map((mr, index) => (
               <li
-                key={mr.id ?? `${mr.external_id}-${mr.iid}` ?? mr.web_url ?? mr.title}
+                key={
+                  String(
+                    mr.id ??
+                      mr.external_id ??
+                      mr.iid ??
+                      mr.web_url ??
+                      `${repositoryId ?? 'repo'}-${mr.source_branch ?? 'src'}-${
+                        mr.target_branch ?? 'dst'
+                      }-${mr.created_at ?? index}`,
+                  )
+                }
                 className="merge-requests-list__item merge-requests-list__item--clickable"
                 role="button"
                 tabIndex={0}
@@ -803,7 +826,7 @@ function MergeRequestsCard({ workspaceId, repository }) {
       {isReviewModalOpen && selectedReviewMr && (
         <div className="review-modal" onClick={handleCloseReview}>
           <div
-            className="review-modal__content"
+            className="review-modal__content review-modal__content--expanded"
             role="dialog"
             aria-modal="true"
             aria-labelledby="mr-review-title"
@@ -825,7 +848,7 @@ function MergeRequestsCard({ workspaceId, repository }) {
               <div className="review-modal__header-actions">
                 {selectedReviewMr.web_url && (
                   <a
-                    className="review-modal__link"
+                    className="review-modal__link ui-btn ui-btn--secondary ui-btn--sm"
                     href={selectedReviewMr.web_url}
                     target="_blank"
                     rel="noreferrer"
@@ -833,11 +856,26 @@ function MergeRequestsCard({ workspaceId, repository }) {
                     Открыть MR
                   </a>
                 )}
-                <button type="button" className="review-modal__close" onClick={handleCloseReview}>
+                <button
+                  type="button"
+                  className="review-modal__close ui-btn ui-btn--ghost ui-btn--sm"
+                  onClick={handleCloseReview}
+                >
                   Закрыть
                 </button>
               </div>
             </header>
+            <div className="review-flow" aria-label="Сценарий ревью">
+              <span className={`review-flow__step ${selectedLlmIntegrationId ? 'is-ready' : ''}`}>
+                1. Выбрать LLM
+              </span>
+              <span className={`review-flow__step ${isReviewRunActive || isReviewRunFinished ? 'is-active' : ''}`}>
+                2. Run / Re-run
+              </span>
+              <span className={`review-flow__step ${isReviewPublished ? 'is-done' : ''}`}>
+                3. Publish
+              </span>
+            </div>
             <div className="review-modal__body">
               <div className="review-sidebar">
                 <section className="review-panel">
@@ -857,6 +895,7 @@ function MergeRequestsCard({ workspaceId, repository }) {
                   <label className="review-field">
                     <span>LLM интеграция</span>
                     <select
+                      className="ui-select"
                       value={selectedLlmIntegrationId}
                       onChange={(event) => setSelectedLlmIntegrationId(event.target.value)}
                       disabled={llmIntegrationsLoading || llmIntegrations.length === 0}
@@ -885,19 +924,19 @@ function MergeRequestsCard({ workspaceId, repository }) {
                   <div className="review-panel__actions">
                     <button
                       type="button"
-                      className="review-action"
+                      className="review-action ui-btn ui-btn--primary"
                       onClick={handleRunReview}
                       disabled={!selectedLlmIntegrationId || isRunningReview}
                     >
-                      {isRunningReview ? 'Запускаю…' : 'Run AI Review'}
+                      {isRunningReview ? 'Запускаю…' : 'Запустить AI-ревью'}
                     </button>
                     <button
                       type="button"
-                      className="review-action review-action--ghost"
+                      className="review-action review-action--ghost ui-btn ui-btn--ghost"
                       onClick={handleRerunReview}
                       disabled={!activeReviewRunId || isRerunningReview}
                     >
-                      {isRerunningReview ? 'Перезапускаю…' : 'Re-run'}
+                      {isRerunningReview ? 'Перезапускаю…' : 'Перезапустить'}
                     </button>
                   </div>
                   <label className="review-checkbox">
@@ -994,20 +1033,20 @@ function MergeRequestsCard({ workspaceId, repository }) {
                     {canCancelReview && (
                       <button
                         type="button"
-                        className="review-action review-action--ghost"
+                        className="review-action review-action--ghost ui-btn ui-btn--ghost"
                         onClick={handleCancelReview}
                         disabled={isCancelingReview}
                       >
-                        {isCancelingReview ? 'Отменяю…' : 'Cancel'}
+                        {isCancelingReview ? 'Отменяю…' : 'Отменить'}
                       </button>
                     )}
                     <button
                       type="button"
-                      className="review-action"
+                      className="review-action ui-btn ui-btn--primary"
                       onClick={handlePublishReview}
                       disabled={!activeReviewRunId || isPublishingReview}
                     >
-                      {isPublishingReview ? 'Публикую…' : 'Publish to MR'}
+                      {isPublishingReview ? 'Публикую…' : 'Опубликовать в MR'}
                     </button>
                   </div>
                 </div>
@@ -1037,45 +1076,48 @@ function MergeRequestsCard({ workspaceId, repository }) {
                 </div>
                 <div className="review-filters">
                   <label>
-                    Severity
+                    Серьёзность
                     <select
+                      className="ui-select"
                       value={reviewFilters.severity}
                       onChange={(event) => handleFilterChange('severity', event.target.value)}
                     >
-                      <option value="">All</option>
-                      <option value="error">Error</option>
-                      <option value="warning">Warning</option>
-                      <option value="info">Info</option>
+                      <option value="">Все</option>
+                      <option value="error">Ошибка</option>
+                      <option value="warning">Предупреждение</option>
+                      <option value="info">Инфо</option>
                     </select>
                   </label>
                   <label>
-                    Type
+                    Тип
                     <select
+                      className="ui-select"
                       value={reviewFilters.commentType}
                       onChange={(event) =>
                         handleFilterChange('commentType', event.target.value)
                       }
                     >
-                      <option value="">All</option>
-                      <option value="general">General</option>
-                      <option value="code_smell">Code smell</option>
-                      <option value="bug">Bug</option>
-                      <option value="security">Security</option>
-                      <option value="performance">Performance</option>
-                      <option value="style">Style</option>
-                      <option value="tests">Tests</option>
-                      <option value="documentation">Documentation</option>
+                      <option value="">Все</option>
+                      <option value="general">Общее</option>
+                      <option value="code_smell">Запах кода</option>
+                      <option value="bug">Баг</option>
+                      <option value="security">Безопасность</option>
+                      <option value="performance">Производительность</option>
+                      <option value="style">Стиль</option>
+                      <option value="tests">Тесты</option>
+                      <option value="documentation">Документация</option>
                     </select>
                   </label>
                   <label>
-                    File
+                    Файл
                     <select
+                      className="ui-select"
                       value={reviewFilters.filePath}
                       onChange={(event) =>
                         handleFilterChange('filePath', event.target.value)
                       }
                     >
-                      <option value="">All files</option>
+                      <option value="">Все файлы</option>
                       {availableFiles.map((file) => (
                         <option key={file} value={file}>
                           {file}
@@ -1133,7 +1175,7 @@ function MergeRequestsCard({ workspaceId, repository }) {
                   </div>
                 )}
                 <div className="review-output">
-                  <h4>Structured output</h4>
+                  <h4>Структурированный вывод</h4>
                   <pre>
                     {toJsonString(
                       reviewDetail?.structured_output ?? reviewDetail?.structured ?? '',
@@ -1141,7 +1183,7 @@ function MergeRequestsCard({ workspaceId, repository }) {
                   </pre>
                 </div>
                 <div className="review-output">
-                  <h4>Raw output</h4>
+                  <h4>Сырой вывод</h4>
                   <pre>
                     {toJsonString(reviewDetail?.raw_output ?? reviewDetail?.raw_response ?? '') ||
                       'Нет данных'}
@@ -1187,34 +1229,35 @@ function WorkspaceContent({
     <section className="workspace-content">
       <div className="workspace-content__shell">
         {creatingWorkspace ? (
-          <form className="workspace-form" onSubmit={handleCreateWorkspace}>
+          <form className="workspace-form ui-panel" onSubmit={handleCreateWorkspace}>
             <div className="workspace-form__title">
-              <p className="workspace-form__eyebrow">Новый workspace</p>
+              <p className="workspace-form__eyebrow">Новое рабочее пространство</p>
               <h3>Придумайте понятное имя.</h3>
             </div>
-            <label className="workspace-form__field">
-              <span>Workspace name</span>
+            <label className="workspace-form__field ui-field">
+              <span>Название рабочего пространства</span>
               <input
+                className="ui-input"
                 type="text"
                 value={newWorkspaceName}
                 onChange={(event) => onNewWorkspaceNameChange(event.target.value)}
-                placeholder="My design system..."
+                placeholder="Например: Платформа API"
               />
             </label>
             {formError && <p className="workspace-form__error">{formError}</p>}
             <div className="workspace-form__actions">
-              <button type="button" onClick={onCancelCreate}>
-                Cancel
+              <button type="button" className="ui-btn ui-btn--secondary" onClick={onCancelCreate}>
+                Отмена
               </button>
-              <button type="submit" className="primary" disabled={isSubmitting}>
-                {isSubmitting ? 'Saving…' : 'Create workspace'}
+              <button type="submit" className="primary ui-btn ui-btn--primary" disabled={isSubmitting}>
+                {isSubmitting ? 'Сохраняю…' : 'Создать пространство'}
               </button>
             </div>
           </form>
         ) : (
           <>
             {showActivePanel ? (
-              <div className="workspace-panel">
+              <div className="workspace-panel ui-panel">
                 <div className="workspace-panel__heading">
                   <div>
                     <p className="workspace-panel__eyebrow">{activeInfo.subtitle}</p>
@@ -1226,7 +1269,7 @@ function WorkspaceContent({
                   <>
                     <div className="workspace-panel__actions">
                       {canEditWorkspace && activeNode?.type === 'workspace' && (
-                        <button type="button" onClick={onSettingsClick}>
+                        <button type="button" className="ui-btn ui-btn--secondary ui-btn--sm" onClick={onSettingsClick}>
                           Настройки
                         </button>
                       )}
@@ -1236,6 +1279,7 @@ function WorkspaceContent({
                         onIntegrationSettings && (
                           <button
                             type="button"
+                            className="ui-btn ui-btn--secondary ui-btn--sm"
                             onClick={() => onIntegrationSettings(activeIntegration)}
                           >
                             Настройки интеграции
@@ -1247,7 +1291,7 @@ function WorkspaceContent({
                         onIntegrationDelete && (
                           <button
                             type="button"
-                            className="workspace-panel__delete workspace-panel__delete--integration"
+                            className="workspace-panel__delete workspace-panel__delete--integration ui-btn ui-btn--danger ui-btn--sm"
                             onClick={() => onIntegrationDelete(activeIntegration)}
                           >
                             Удалить интеграцию
@@ -1260,7 +1304,7 @@ function WorkspaceContent({
                         onRepositoryDelete && (
                           <button
                             type="button"
-                            className="workspace-panel__delete workspace-panel__delete--integration"
+                            className="workspace-panel__delete workspace-panel__delete--integration ui-btn ui-btn--danger ui-btn--sm"
                             onClick={() =>
                               onRepositoryDelete(activeIntegration, activeNode.repository)
                             }
@@ -1272,7 +1316,7 @@ function WorkspaceContent({
                         activeNode?.type === 'workspace' && (
                           <button
                             type="button"
-                            className="workspace-panel__delete"
+                            className="workspace-panel__delete ui-btn ui-btn--danger ui-btn--sm"
                             onClick={onDeleteClick}
                           >
                             Удалить
@@ -1281,11 +1325,11 @@ function WorkspaceContent({
                     </div>
                     {activeNode?.type === 'workspace' && (
                       <div className="workspace-panel__grid">
-                        <article className="workspace-card">
+                        <article className="workspace-card ui-panel">
                           <p className="workspace-card__label">Собственник</p>
                           <p className="workspace-card__value">ID {selectedWorkspace.owner_id}</p>
                         </article>
-                        <article className="workspace-card">
+                        <article className="workspace-card ui-panel">
                           <p className="workspace-card__label">Дата создания</p>
                           <p className="workspace-card__value">
                             {new Date(selectedWorkspace.created_at).toLocaleString('ru-RU')}
@@ -1297,7 +1341,7 @@ function WorkspaceContent({
                 )}
               </div>
             ) : (
-              <div className="workspace-empty">
+              <div className="workspace-empty ui-panel">
                 <div className="workspace-empty__illustration" aria-hidden="true">
                   <svg viewBox="0 0 96 96">
                     <rect x="12" y="28" width="72" height="52" rx="6" fill="#e2e8f0" />
@@ -1309,10 +1353,10 @@ function WorkspaceContent({
                 </div>
                 <h3>
                   {workspacesLoading
-                    ? 'Загружаем workspaces'
+                    ? 'Загружаем рабочие пространства'
                     : workspacesError
-                      ? 'Workspaces недоступны'
-                      : 'Workspace не выбран'}
+                      ? 'Рабочие пространства недоступны'
+                      : 'Рабочее пространство не выбрано'}
                 </h3>
                 <p className="workspace-empty__description">
                   {workspacesLoading
@@ -1323,12 +1367,12 @@ function WorkspaceContent({
                 </p>
                 <div className="workspace-empty__actions">
                   {workspacesError ? (
-                    <button type="button" onClick={onRetryWorkspaces}>
+                    <button type="button" className="ui-btn ui-btn--secondary" onClick={onRetryWorkspaces}>
                       Повторить загрузку
                     </button>
                   ) : (
-                    <button type="button" onClick={onStartCreate}>
-                      + Создать workspace
+                    <button type="button" className="ui-btn ui-btn--primary" onClick={onStartCreate}>
+                      + Создать пространство
                     </button>
                   )}
                 </div>

@@ -17,7 +17,6 @@ function WorkspaceSidebar({
   handleIntegrationFormChange,
   handleCreateIntegration,
   isSubmittingIntegration,
-  openRepos,
   toggleRepos,
   isRepoOpen,
   handleIntegrationSelect,
@@ -37,31 +36,35 @@ function WorkspaceSidebar({
     <aside className="workspace-sidebar">
       <div className="workspace-sidebar__header">
         <div>
-          <h2 className="workspace-sidebar__title">Workspaces</h2>
+          <p className="workspace-sidebar__eyebrow">Навигация</p>
+          <h2 className="workspace-sidebar__title">Рабочие пространства</h2>
+          <p className="workspace-sidebar__caption">
+            {workspacesLoading ? 'Загрузка…' : `Всего: ${workspaces.length}`}
+          </p>
         </div>
         <button
           type="button"
-          className="workspace-sidebar__create"
+          className="workspace-sidebar__create ui-btn ui-btn--secondary ui-btn--sm"
           onClick={onCreateWorkspaceClick}
         >
           <span className="workspace-sidebar__create-icon" aria-hidden="true">
             +
           </span>
-          <span>Workspace</span>
+          <span>Создать</span>
         </button>
       </div>
 
-      <ul className="workspace-tree">
+      <ul className="workspace-tree" aria-label="Список рабочих пространств">
         {workspacesLoading && (
-          <li className="workspace-sidebar__status workspace-sidebar__status--loading">
-            Загружаем workspaces…
+          <li className="workspace-sidebar__status workspace-sidebar__status--loading ui-status ui-status--info">
+            Загружаем рабочие пространства…
           </li>
         )}
 
         {!workspacesLoading && workspacesError && (
           <li className="workspace-sidebar__status workspace-sidebar__status--error">
             <p>{workspacesError}</p>
-            <button type="button" onClick={onRetryWorkspaces}>
+            <button type="button" className="ui-btn ui-btn--secondary ui-btn--sm" onClick={onRetryWorkspaces}>
               Повторить
             </button>
           </li>
@@ -69,9 +72,9 @@ function WorkspaceSidebar({
 
         {!workspacesLoading && !workspacesError && workspaces.length === 0 && (
           <li className="workspace-sidebar__status workspace-sidebar__status--empty">
-            <p>Пока нет ни одного workspace.</p>
-            <button type="button" onClick={onCreateWorkspaceClick}>
-              Создать workspace
+            <p>Пока нет ни одного рабочего пространства.</p>
+            <button type="button" className="ui-btn ui-btn--secondary ui-btn--sm" onClick={onCreateWorkspaceClick}>
+              Создать пространство
             </button>
           </li>
         )}
@@ -84,10 +87,11 @@ function WorkspaceSidebar({
                 type="button"
                 className={`workspace-tree__button ${isWorkspaceActive ? 'is-active' : ''}`}
                 onClick={() => onWorkspaceSelect(workspace)}
+                aria-current={isWorkspaceActive ? 'page' : undefined}
               >
                 <span className="workspace-tree__indicator" aria-hidden="true" />
                 <span className="workspace-tree__label">{workspace.name}</span>
-                <span className="workspace-tree__meta">{workspace.role || 'Member'}</span>
+                <span className="workspace-tree__meta">{workspace.role || 'Участник'}</span>
               </button>
 
               <IntegrationSection

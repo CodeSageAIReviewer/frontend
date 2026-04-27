@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import {
   createLlmIntegration,
   deleteLlmIntegration,
@@ -15,12 +15,63 @@ const PROVIDER_OPTIONS = [
   { value: 'ollama', label: 'Ollama (Local)' },
 ]
 
+const LLM_PROVIDER_DEFAULT_BASE_URL = {
+  openai: 'https://api.openai.com/v1',
+  deepseek: 'https://api.deepseek.com',
+  ollama: 'http://localhost:11434/v1',
+}
+
+const LLM_FIELD_HINTS = {
+  model: {
+    title: 'Модель',
+    text:
+      'Это имя модели, которую будет использовать интеграция. Примеры: gpt-4o, deepseek-chat, llama3. Для локального Ollama укажите тег модели из `ollama list`.',
+  },
+  base_url: {
+    title: 'Base URL',
+    text:
+      'Base URL — адрес API провайдера. Для OpenAI обычно https://api.openai.com/v1, для DeepSeek — https://api.deepseek.com, для Ollama — http://localhost:11434/v1.',
+  },
+  api_key: {
+    title: 'API ключ',
+    text:
+      'Ключ авторизации для провайдера LLM. Обычно создаётся в личном кабинете OpenAI/DeepSeek. Для Ollama API ключ, как правило, не требуется.',
+  },
+}
+
 const INITIAL_LLM_FORM = {
   name: '',
   provider: 'openai',
   model: '',
-  base_url: '',
+  base_url: LLM_PROVIDER_DEFAULT_BASE_URL.openai,
   api_key: '',
+}
+
+function FieldLabelWithHint({
+  label,
+  hintKey,
+  activeHintKey,
+  onOpenHint,
+  onCloseHint,
+}) {
+  return (
+    <span className="llm-field-label">
+      <span>{label}</span>
+      <button
+        type="button"
+        className="llm-tooltip"
+        aria-label={`Показать подсказку: ${label}`}
+        aria-expanded={activeHintKey === hintKey}
+        onMouseEnter={() => onOpenHint(hintKey)}
+        onMouseLeave={onCloseHint}
+        onFocus={() => onOpenHint(hintKey)}
+        onBlur={onCloseHint}
+        onClick={() => onOpenHint(hintKey)}
+      >
+        ?
+      </button>
+    </span>
+  )
 }
 
 function PageLayout({ children }) {
@@ -38,6 +89,7 @@ function PageLayout({ children }) {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleteError, setDeleteError] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
+  const [activeHelpHint, setActiveHelpHint] = useState('')
 
   const handleAuthAction = () => {
     if (isAuthenticated) {
@@ -52,6 +104,7 @@ function PageLayout({ children }) {
     setLlmForm(INITIAL_LLM_FORM)
     setLlmFormError('')
     setEditingIntegration(null)
+    setActiveHelpHint('')
   }, [])
 
   const handleOpenProviders = useCallback(() => {
@@ -67,6 +120,7 @@ function PageLayout({ children }) {
     setLlmError('')
     setDeleteError('')
     setDeleteTarget(null)
+    setActiveHelpHint('')
     resetLlmForm()
   }, [resetLlmForm])
 
@@ -116,11 +170,22 @@ function PageLayout({ children }) {
 
   const handleFormChange = useCallback((field, value) => {
     setLlmForm((prev) => {
-      const next = { ...prev, [field]: value }
-      if (field === 'provider' && value === 'ollama') {
-        next.api_key = ''
+      if (field !== 'provider') {
+        return { ...prev, [field]: value }
       }
-      return next
+
+      const previousProvider = prev.provider
+      const previousDefault = LLM_PROVIDER_DEFAULT_BASE_URL[previousProvider] ?? ''
+      const nextDefault = LLM_PROVIDER_DEFAULT_BASE_URL[value] ?? ''
+      const normalizedBaseUrl = prev.base_url.trim()
+      const shouldApplyDefault = !normalizedBaseUrl || normalizedBaseUrl === previousDefault
+
+      return {
+        ...prev,
+        provider: value,
+        base_url: shouldApplyDefault ? nextDefault : prev.base_url,
+        api_key: value === 'ollama' ? '' : prev.api_key,
+      }
     })
   }, [])
 
@@ -132,6 +197,7 @@ function PageLayout({ children }) {
     if (!integration) {
       return
     }
+    setActiveHelpHint('')
     setEditingIntegration(integration)
     setLlmForm({
       name: integration.name ?? '',
@@ -240,73 +306,140 @@ function PageLayout({ children }) {
   const authLabel = isAuthenticated ? 'Выйти' : 'Войти'
   const showNavbar = location.pathname !== '/auth'
   const contentClass = 'page-content'
+  const activeFormTitle = editingIntegration ? 'Редактирование интеграции' : 'Новая интеграция'
+  const activeFormActionLabel = editingIntegration ? 'Сохранить изменения' : 'Создать интеграцию'
+
+  const isRouteActive = useCallback(
+    (pathname) => location.pathname.startsWith(pathname),
+    [location.pathname],
+  )
 
   return (
     <div className="page-layout">
       {showNavbar && (
-        <nav className="site-navbar">
-          <div className="site-brand">
-            <Link to="/landing">CodeSage</Link>
-          </div>
-          <div className="site-navbar__actions">
-            <Link to="/docs" className="nav-button nav-button--ghost">
-              Docs
-            </Link>
-            {isAuthenticated && (
+        <header className="site-navbar">
+          <div className="site-navbar__inner">
+            <div className="site-brand">
+              <Link to="/landing">CodeSage</Link>
+              <span className="site-brand__meta">AI Code Review</span>
+            </div>
+
+            <nav className="site-navbar__routes" aria-label="Основная навигация">
+              <Link
+                to="/landing"
+                className={`ui-btn ui-btn--ghost ui-btn--sm ${
+                  isRouteActive('/landing') ? 'site-navbar__route is-active' : 'site-navbar__route'
+                }`}
+              >
+                Главная
+              </Link>
+              <Link
+                to="/docs"
+                className={`ui-btn ui-btn--ghost ui-btn--sm ${
+                  isRouteActive('/docs') ? 'site-navbar__route is-active' : 'site-navbar__route'
+                }`}
+              >
+                Документация
+              </Link>
+              {isAuthenticated && (
+                <Link
+                  to="/workspace"
+                  className={`ui-btn ui-btn--ghost ui-btn--sm ${
+                    isRouteActive('/workspace')
+                      ? 'site-navbar__route is-active'
+                      : 'site-navbar__route'
+                  }`}
+                >
+                  Рабочее пространство
+                </Link>
+              )}
+            </nav>
+
+            <div className="site-navbar__actions">
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  className="ui-btn ui-btn--secondary ui-btn--sm"
+                  onClick={handleOpenProviders}
+                >
+                  LLM провайдеры
+                </button>
+              )}
               <button
                 type="button"
-                className="nav-button nav-button--ghost"
-                onClick={handleOpenProviders}
+                className="ui-btn ui-btn--secondary ui-btn--sm"
+                onClick={handleAuthAction}
               >
-                LLM
+                {authLabel}
               </button>
-            )}
-            {isAuthenticated && (
-              <Link to="/workspace" className="nav-link-button">
-                Workspace
-              </Link>
-            )}
-            <button type="button" className="nav-button" onClick={handleAuthAction}>
-              {authLabel}
-            </button>
+            </div>
           </div>
-        </nav>
+        </header>
       )}
       {isProvidersOpen && (
         <div className="modal-overlay" onClick={handleCloseProviders}>
           <div
-            className="modal-window"
+            className="modal-window llm-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="llm-providers-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <header className="modal-header">
-              <div>
-                <p className="modal-eyebrow">LLM интеграции</p>
-                <h2 id="llm-providers-title">Ваши провайдеры</h2>
+            <header className="llm-modal__header">
+              <div className="llm-modal__title-block">
+                <p className="llm-modal__eyebrow">LLM интеграции</p>
+                <h2 id="llm-providers-title">Управление провайдерами</h2>
+                <p className="llm-modal__subtitle">
+                  Выберите интеграцию для редактирования или создайте новую.
+                </p>
               </div>
-              <button type="button" className="modal-close" onClick={handleCloseProviders}>
+              <button
+                type="button"
+                className="ui-btn ui-btn--ghost ui-btn--sm"
+                onClick={handleCloseProviders}
+              >
                 Закрыть
               </button>
             </header>
-            <div className="modal-body modal-body--split">
-              <section className="llm-section">
-                <div className="llm-section__header">
-                  <h3 className="llm-section__title">Список интеграций</h3>
+            <div className="llm-modal__layout">
+              <section className="llm-section ui-panel">
+                <div className="llm-section__header llm-section__header--with-action">
+                  <h3 className="llm-section__title">
+                    Интеграции
+                    <span className="llm-section__count">{llmIntegrations.length}</span>
+                  </h3>
+                  <button
+                    type="button"
+                    className="ui-btn ui-btn--secondary ui-btn--sm"
+                    onClick={handleStartCreate}
+                  >
+                    Новая интеграция
+                  </button>
                 </div>
                 {llmLoading ? (
-                  <p className="llm-empty">Загружаю интеграции…</p>
+                  <p className="llm-empty ui-status ui-status--info">Загружаю интеграции…</p>
                 ) : llmError ? (
-                  <p className="llm-error">{llmError}</p>
+                  <p className="llm-error ui-status ui-status--danger">{llmError}</p>
                 ) : llmIntegrations.length === 0 ? (
-                  <p className="llm-empty">
-                    Пока нет провайдеров. Создайте первую интеграцию.
-                  </p>
+                  <div className="llm-empty-state">
+                    <p className="llm-empty ui-status">Пока нет провайдеров. Добавьте первую интеграцию.</p>
+                    <button
+                      type="button"
+                      className="ui-btn ui-btn--secondary ui-btn--sm"
+                      onClick={handleStartCreate}
+                    >
+                      Добавить провайдера
+                    </button>
+                  </div>
                 ) : (
                   <ul className="llm-list">
                     {llmIntegrations.map((integration) => (
-                      <li key={integration.id} className="llm-item">
+                      <li
+                        key={integration.id}
+                        className={`llm-item ui-panel ${
+                          editingIntegration?.id === integration.id ? 'is-active' : ''
+                        }`}
+                      >
                         <div className="llm-item__top">
                           <div>
                             <p className="llm-item__title">{integration.name}</p>
@@ -315,25 +448,27 @@ function PageLayout({ children }) {
                                 integration.provider}
                             </p>
                           </div>
-                          <span className="llm-item__badge">{integration.model}</span>
+                          <span className="llm-item__badge ui-badge ui-badge--info">
+                            {integration.model}
+                          </span>
                         </div>
                         <p className="llm-item__meta">
                           Base URL: {integration.base_url || '—'}
                         </p>
                         <p className="llm-item__meta">
-                          API ключ: {integration.api_key_present ? 'установлен' : 'нет'}
+                          API ключ: {integration.api_key_present ? 'установлен' : 'отсутствует'}
                         </p>
                         <div className="llm-item__actions">
                           <button
                             type="button"
-                            className="llm-item__button"
+                            className="llm-item__button ui-btn ui-btn--ghost ui-btn--sm"
                             onClick={() => handleStartEdit(integration)}
                           >
                             Изменить
                           </button>
                           <button
                             type="button"
-                            className="llm-item__button llm-item__button--danger"
+                            className="llm-item__button llm-item__button--danger ui-btn ui-btn--danger ui-btn--sm"
                             onClick={() => handleOpenDelete(integration)}
                           >
                             Удалить
@@ -344,15 +479,15 @@ function PageLayout({ children }) {
                   </ul>
                 )}
                 {deleteTarget && (
-                  <div className="llm-delete">
+                  <div className="llm-delete ui-status ui-status--warning">
                     <p className="llm-delete__text">
                       Удалить интеграцию «{deleteTarget.name}»?
                     </p>
-                    {deleteError && <p className="llm-error">{deleteError}</p>}
+                    {deleteError && <p className="llm-error ui-status ui-status--danger">{deleteError}</p>}
                     <div className="llm-delete__actions">
                       <button
                         type="button"
-                        className="llm-item__button"
+                        className="llm-item__button ui-btn ui-btn--ghost ui-btn--sm"
                         onClick={handleCloseDelete}
                         disabled={isDeleting}
                       >
@@ -360,7 +495,7 @@ function PageLayout({ children }) {
                       </button>
                       <button
                         type="button"
-                        className="llm-item__button llm-item__button--danger"
+                        className="llm-item__button llm-item__button--danger ui-btn ui-btn--danger ui-btn--sm"
                         onClick={handleConfirmDelete}
                         disabled={isDeleting}
                       >
@@ -370,16 +505,15 @@ function PageLayout({ children }) {
                   </div>
                 )}
               </section>
-              <section className="llm-section llm-section--form">
+              <section className="llm-section llm-section--form ui-panel">
                 <div className="llm-section__header">
-                  <h3 className="llm-section__title">
-                    {editingIntegration ? 'Редактирование' : 'Новая интеграция'}
-                  </h3>
+                  <h3 className="llm-section__title">{activeFormTitle}</h3>
                 </div>
                 <form className="llm-form" onSubmit={handleSubmitLlm}>
-                  <label className="llm-field">
+                  <label className="llm-field ui-field">
                     <span>Название</span>
                     <input
+                      className="ui-input"
                       type="text"
                       value={llmForm.name}
                       maxLength={255}
@@ -388,9 +522,10 @@ function PageLayout({ children }) {
                       required
                     />
                   </label>
-                  <label className="llm-field">
+                  <label className="llm-field ui-field">
                     <span>Провайдер</span>
                     <select
+                      className="ui-select"
                       value={llmForm.provider}
                       onChange={(event) => handleFormChange('provider', event.target.value)}
                       disabled={Boolean(editingIntegration)}
@@ -402,9 +537,18 @@ function PageLayout({ children }) {
                       ))}
                     </select>
                   </label>
-                  <label className="llm-field">
-                    <span>Модель</span>
+                  <label className="llm-field ui-field">
+                    <FieldLabelWithHint
+                      label="Модель"
+                      hintKey="model"
+                      activeHintKey={activeHelpHint}
+                      onOpenHint={setActiveHelpHint}
+                      onCloseHint={() =>
+                        setActiveHelpHint((prev) => (prev === 'model' ? '' : prev))
+                      }
+                    />
                     <input
+                      className="ui-input"
                       type="text"
                       value={llmForm.model}
                       maxLength={255}
@@ -413,22 +557,39 @@ function PageLayout({ children }) {
                       required
                     />
                   </label>
-                  <label className="llm-field">
-                    <span>Base URL</span>
+                  <label className="llm-field ui-field">
+                    <FieldLabelWithHint
+                      label="Base URL"
+                      hintKey="base_url"
+                      activeHintKey={activeHelpHint}
+                      onOpenHint={setActiveHelpHint}
+                      onCloseHint={() =>
+                        setActiveHelpHint((prev) => (prev === 'base_url' ? '' : prev))
+                      }
+                    />
                     <input
+                      className="ui-input"
                       type="url"
                       value={llmForm.base_url}
                       onChange={(event) => handleFormChange('base_url', event.target.value)}
-                      placeholder="http://localhost:11434"
+                      placeholder={
+                        LLM_PROVIDER_DEFAULT_BASE_URL[llmForm.provider] ??
+                        'https://api.example.com/v1'
+                      }
                     />
                   </label>
-                  <label className="llm-field">
-                    <span>
-                      {editingIntegration
-                        ? 'Новый API ключ'
-                        : 'API ключ'}
-                    </span>
+                  <label className="llm-field ui-field">
+                    <FieldLabelWithHint
+                      label={editingIntegration ? 'Новый API ключ' : 'API ключ'}
+                      hintKey="api_key"
+                      activeHintKey={activeHelpHint}
+                      onOpenHint={setActiveHelpHint}
+                      onCloseHint={() =>
+                        setActiveHelpHint((prev) => (prev === 'api_key' ? '' : prev))
+                      }
+                    />
                     <input
+                      className="ui-input"
                       type="password"
                       value={llmForm.api_key}
                       onChange={(event) => handleFormChange('api_key', event.target.value)}
@@ -446,12 +607,12 @@ function PageLayout({ children }) {
                   {!editingIntegration && !isApiKeyRequired && (
                     <p className="llm-hint">API ключ не требуется для Ollama.</p>
                   )}
-                  {llmFormError && <p className="llm-error">{llmFormError}</p>}
+                  {llmFormError && <p className="llm-error ui-status ui-status--danger">{llmFormError}</p>}
                   <div className="llm-form__actions">
                     {editingIntegration && (
                       <button
                         type="button"
-                        className="llm-item__button"
+                        className="llm-item__button ui-btn ui-btn--ghost"
                         onClick={handleStartCreate}
                         disabled={isSavingLlm}
                       >
@@ -460,17 +621,25 @@ function PageLayout({ children }) {
                     )}
                     <button
                       type="submit"
-                      className="llm-submit"
+                      className="llm-submit ui-btn ui-btn--primary"
                       disabled={isSavingLlm}
                     >
                       {isSavingLlm
                         ? 'Сохраняю…'
-                        : editingIntegration
-                          ? 'Сохранить изменения'
-                          : 'Создать интеграцию'}
+                        : activeFormActionLabel}
                     </button>
                   </div>
                 </form>
+                {activeHelpHint && LLM_FIELD_HINTS[activeHelpHint] && (
+                  <div className="llm-help-popover" role="tooltip" aria-live="polite">
+                    <p className="llm-help-popover__title">
+                      {LLM_FIELD_HINTS[activeHelpHint].title}
+                    </p>
+                    <p className="llm-help-popover__text">
+                      {LLM_FIELD_HINTS[activeHelpHint].text}
+                    </p>
+                  </div>
+                )}
               </section>
             </div>
           </div>

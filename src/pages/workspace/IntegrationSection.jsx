@@ -1,9 +1,54 @@
+import { useState } from 'react'
 import { FaGithub } from 'react-icons/fa'
 import { FaGitlab } from 'react-icons/fa6'
 
 const providerIcons = {
   github: FaGithub,
   gitlab: FaGitlab,
+}
+
+const integrationFieldHints = {
+  baseUrl:
+    'Base URL — адрес API вашего Git-провайдера. Для GitHub Cloud обычно подходит https://api.github.com, для GitLab Cloud — https://gitlab.com/api/v4. Для self-hosted укажите URL вашего инстанса API.',
+  accessToken:
+    'Токен доступа нужен, чтобы читать репозитории, ветки и merge requests. Создаётся в настройках Personal Access Token GitHub/GitLab с правами чтения репозиториев и MR/PR.',
+  refreshToken:
+    'Токен обновления нужен не всегда. Заполняйте его, только если ваш провайдер интеграции выдает refresh token для продления access token.',
+}
+
+function FieldLabelWithHint({
+  label,
+  hint,
+  hintId,
+  isActive,
+  onOpenHint,
+  onCloseHint,
+}) {
+  return (
+    <span className="integration-field-label">
+      <span>{label}</span>
+      <button
+        type="button"
+        className="integration-tooltip"
+        aria-label={`Показать подсказку: ${label}`}
+        aria-describedby={hintId}
+        aria-expanded={isActive}
+        onMouseEnter={onOpenHint}
+        onMouseLeave={onCloseHint}
+        onFocus={onOpenHint}
+        onBlur={onCloseHint}
+        onClick={onOpenHint}
+      >
+        ?
+      </button>
+      {isActive && (
+        <div className="integration-help-popover" role="tooltip" id={hintId}>
+          <p className="integration-help-popover__title">{label}</p>
+          <p className="integration-help-popover__text">{hint}</p>
+        </div>
+      )}
+    </span>
+  )
 }
 
 function IntegrationSection({
@@ -32,6 +77,8 @@ function IntegrationSection({
   onRepoSelect,
   onOpenRepositoryModal,
 }) {
+  const [activeHint, setActiveHint] = useState('')
+
   if (!isActive) {
     return null
   }
@@ -42,48 +89,51 @@ function IntegrationSection({
     const repoList = savedRepositories[integration.id] ?? []
     const repoOpen = isRepoOpen(integration.id)
     const Icon = providerIcons[integration.provider] || null
+    const isIntegrationActive =
+      activeNode.type === 'integration' && activeNode.id === integration.id
 
     return (
       <div key={integration.id} className="integration-item">
-        <button
-          type="button"
-          className={`tree-item tree-item--integration ${
-            activeNode.type === 'integration' && activeNode.id === integration.id
-              ? 'tree-item--active'
-              : ''
-          }`}
-          onClick={() => onIntegrationSelect(integration)}
-        >
-          <span
-            className={`chevron ${repoOpen ? 'chevron--open' : ''}`}
-            aria-hidden="true"
-            onClick={(event) => {
-              event.stopPropagation()
-              toggleRepos(integration.id)
-            }}
-          />
-          {Icon ? (
-            <Icon className="integration-provider-icon" aria-hidden="true" />
-          ) : (
-            <span className="node-icon node-icon--integration" aria-hidden="true" />
-          )}
-          <span>{integration.name}</span>
-        </button>
+        <div className={`integration-item__head ${isIntegrationActive ? 'is-active' : ''}`}>
+          <button
+            type="button"
+            className={`tree-item tree-item--integration ${
+              isIntegrationActive ? 'tree-item--active' : ''
+            }`}
+            onClick={() => onIntegrationSelect(integration)}
+          >
+            {Icon ? (
+              <Icon className="integration-provider-icon" aria-hidden="true" />
+            ) : (
+              <span className="node-icon node-icon--integration" aria-hidden="true" />
+            )}
+            <span className="integration-item__name">{integration.name}</span>
+          </button>
+          <button
+            type="button"
+            className="integration-item__toggle"
+            onClick={() => toggleRepos(integration.id)}
+            aria-expanded={repoOpen}
+            aria-label={repoOpen ? 'Свернуть репозитории' : 'Развернуть репозитории'}
+          >
+            <span className={`chevron ${repoOpen ? 'chevron--open' : ''}`} aria-hidden="true" />
+          </button>
+        </div>
 
         <button
           type="button"
-          className="integration-repo-launch"
+          className="integration-repo-launch ui-btn ui-btn--ghost ui-btn--sm"
           onClick={() => onOpenRepositoryModal(workspace, integration)}
         >
-          + Repository
+          + Репозиторий
         </button>
 
         {repoOpen && (
           <div className="repo-list">
             {savedRepositoriesLoading && workspace.id === selectedWorkspaceId ? (
-              <p className="integration-status">Загружаем репозитории…</p>
+              <p className="integration-status ui-status ui-status--info">Загружаем репозитории…</p>
             ) : savedRepositoriesError && workspace.id === selectedWorkspaceId ? (
-              <p className="integration-status integration-status--error">{savedRepositoriesError}</p>
+              <p className="integration-status integration-status--error ui-status ui-status--danger">{savedRepositoriesError}</p>
             ) : repoList.length === 0 ? (
               <p className="repo-empty">Нет подключённых репозиториев</p>
             ) : (
@@ -128,27 +178,25 @@ function IntegrationSection({
           className="integration-toggle"
           onClick={toggleIntegrations}
         >
-          <span
-            className={`chevron ${isIntegrationOpen ? 'chevron--open' : ''}`}
-            aria-hidden="true"
-          />
-          <span>Integrations</span>
+          <span className={`chevron ${isIntegrationOpen ? 'chevron--open' : ''}`} aria-hidden="true" />
+          <span>Интеграции</span>
         </button>
         <button
           type="button"
-          className="pill-button pill-button--outline"
+          className="pill-button ui-btn ui-btn--ghost ui-btn--sm"
           onClick={handleToggleIntegrationForm}
         >
-          {isAddingIntegration ? 'Cancel' : '+ Integration'}
+          {isAddingIntegration ? 'Отмена' : '+ Интеграция'}
         </button>
       </div>
 
       {isAddingIntegration && selectedWorkspaceId === workspace.id && (
         <form className="integration-form" onSubmit={handleCreateIntegration}>
           <div className="integration-form__fields">
-            <label>
-              <span>Name</span>
+            <label className="ui-field">
+              <span>Название</span>
               <input
+                className="ui-input"
                 type="text"
                 value={integrationForm.name}
                 onChange={(event) =>
@@ -158,9 +206,10 @@ function IntegrationSection({
                 required
               />
             </label>
-            <label>
-              <span>Provider</span>
+            <label className="ui-field">
+              <span>Провайдер</span>
               <select
+                className="ui-select"
                 value={integrationForm.provider}
                 onChange={(event) =>
                   handleIntegrationFormChange('provider', event.target.value)
@@ -170,9 +219,19 @@ function IntegrationSection({
                 <option value="gitlab">GitLab</option>
               </select>
             </label>
-            <label>
-              <span>Base URL</span>
+            <label className="ui-field">
+              <FieldLabelWithHint
+                label="Базовый URL"
+                hint={integrationFieldHints.baseUrl}
+                hintId="integration-base-url-hint"
+                isActive={activeHint === 'base_url'}
+                onOpenHint={() => setActiveHint('base_url')}
+                onCloseHint={() =>
+                  setActiveHint((prev) => (prev === 'base_url' ? '' : prev))
+                }
+              />
               <input
+                className="ui-input"
                 type="url"
                 value={integrationForm.base_url}
                 onChange={(event) =>
@@ -181,9 +240,19 @@ function IntegrationSection({
                 placeholder="https://git.example.com"
               />
             </label>
-            <label>
-              <span>Access token</span>
+            <label className="ui-field">
+              <FieldLabelWithHint
+                label="Токен доступа"
+                hint={integrationFieldHints.accessToken}
+                hintId="integration-access-token-hint"
+                isActive={activeHint === 'access_token'}
+                onOpenHint={() => setActiveHint('access_token')}
+                onCloseHint={() =>
+                  setActiveHint((prev) => (prev === 'access_token' ? '' : prev))
+                }
+              />
               <input
+                className="ui-input"
                 type="password"
                 value={integrationForm.access_token}
                 onChange={(event) =>
@@ -192,9 +261,19 @@ function IntegrationSection({
                 required
               />
             </label>
-            <label>
-              <span>Refresh token</span>
+            <label className="ui-field">
+              <FieldLabelWithHint
+                label="Токен обновления"
+                hint={integrationFieldHints.refreshToken}
+                hintId="integration-refresh-token-hint"
+                isActive={activeHint === 'refresh_token'}
+                onOpenHint={() => setActiveHint('refresh_token')}
+                onCloseHint={() =>
+                  setActiveHint((prev) => (prev === 'refresh_token' ? '' : prev))
+                }
+              />
               <input
+                className="ui-input"
                 type="password"
                 value={integrationForm.refresh_token}
                 onChange={(event) =>
@@ -207,8 +286,8 @@ function IntegrationSection({
             <p className="integration-form__error">{integrationFormError}</p>
           )}
           <div className="integration-form__actions">
-            <button type="submit" disabled={isSubmittingIntegration}>
-              {isSubmittingIntegration ? 'Creating…' : 'Connect integration'}
+            <button type="submit" className="ui-btn ui-btn--primary" disabled={isSubmittingIntegration}>
+              {isSubmittingIntegration ? 'Создаю…' : 'Подключить интеграцию'}
             </button>
           </div>
         </form>
@@ -217,14 +296,14 @@ function IntegrationSection({
       {showList && (
         <div className="integration-list">
           {integrationsLoading && workspace.id === selectedWorkspaceId ? (
-            <p className="integration-status">Загружаем интеграции…</p>
+            <p className="integration-status ui-status ui-status--info">Загружаем интеграции…</p>
           ) : integrationsError && workspace.id === selectedWorkspaceId ? (
-            <p className="integration-status integration-status--error">{integrationsError}</p>
+            <p className="integration-status integration-status--error ui-status ui-status--danger">{integrationsError}</p>
           ) : integrations.length === 0 ? (
             <div className="integration-empty">
-              <p>No integrations</p>
+              <p>Нет интеграций</p>
               <p className="integration-empty__hint">
-                Добавь интеграцию выше, чтобы начать
+                Добавьте интеграцию выше, чтобы начать
               </p>
             </div>
           ) : (

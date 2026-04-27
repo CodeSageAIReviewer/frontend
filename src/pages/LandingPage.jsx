@@ -1,40 +1,46 @@
 import { Link } from 'react-router-dom'
 import { useMemo } from 'react'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import './LandingPage.css'
 
 const workflow = [
   {
-    title: 'Подключите репозиторий',
+    title: 'Подключите рабочее пространство',
     detail:
-      'Выберите проект и настройте интеграции LLM. После этого CodeSage начнёт собирать контекст автоматически.',
+      'Добавьте Git и LLM интеграции, чтобы система могла собирать контекст изменений автоматически.',
   },
   {
-    title: 'Запустите анализ изменений',
+    title: 'Запустите ревью по MR/PR',
     detail:
-      'Проверяйте коммиты и PR/MR до мержа: рекомендации по рискам, качеству и тестовому покрытию появляются в одном отчете.',
+      'Выберите нужный merge request и запустите AI-ревью с вашей моделью в один клик.',
   },
   {
-    title: 'Доведите ревью до решения',
+    title: 'Разберите находки и примите решение',
     detail:
-      'Фиксируйте выводы, сохраняйте историю решений и повторно используйте контекст для следующих итераций.',
+      'Фильтруйте замечания по серьёзности, публикуйте комментарии и фиксируйте историю запусков.',
   },
 ]
 
 const highlights = [
   {
-    title: 'Коммиты на ладони',
-    detail: 'Сразу видно изменённые файлы, ключевые метрики и приоритетные зоны внимания.',
+    title: 'Один рабочий контур',
+    detail: 'Репозитории, MR, запуски ревью и комментарии объединены в едином интерфейсе.',
   },
   {
-    title: 'PR/MR Insights',
+    title: 'Прозрачные статусы',
     detail:
-      'Каждая заявка на слияние оценивается по безопасности, производительности и качеству тестирования.',
+      'Видно, что сейчас выполняется, что опубликовано и где нужны действия команды.',
   },
   {
-    title: 'Журнал решений',
-    detail: 'Контекст прошлых рекомендаций сохраняется и помогает быстрее принимать обоснованные решения.',
+    title: 'История решений',
+    detail: 'Каждый запуск и его результат сохраняются, чтобы возвращаться к выводам без потери контекста.',
   },
+]
+
+const contextBullets = [
+  'Поддержка GitHub/GitLab и OpenAI/DeepSeek/Ollama',
+  'Фокус на качестве, рисках и готовности к merge',
+  'Управляемый процесс: запуск, проверка, публикация',
 ]
 
 function LandingPage() {
@@ -49,68 +55,63 @@ function LandingPage() {
   )
 
   const primaryAction = isAuthenticated
-    ? { label: 'Перейти в Workspace', to: '/workspace' }
-    : { label: 'Начать работу', to: '/auth' }
+    ? { label: 'Открыть рабочее пространство', to: '/workspace' }
+    : { label: 'Войти и начать ревью', to: '/auth' }
 
   return (
     <main className="landing-page">
-      <section className="landing-panel">
-        <header className="landing-head">
-          <div>
-            <p className="eyebrow">CodeSage</p>
-            <h1>AI-ассистент для спокойных и точных code review</h1>
+      <section className="landing-layout">
+        <header className="landing-hero ui-panel">
+          <div className="landing-hero__main">
+            <p className="landing-eyebrow">CodeSage Platform</p>
+            <h1>Контроль качества кода перед merge без ручной рутины</h1>
             <p className="landing-subtitle">
-              Единый поток для анализа коммитов и PR/MR: меньше ручной рутины, больше понятных решений
-              по качеству кода.
+              Рабочая поверхность для запуска AI-ревью, приоритизации замечаний и принятия решений по PR/MR.
             </p>
-          </div>
-          <p className={`landing-status ${isAuthenticated ? 'landing-status--ready' : ''}`}>
-            {isAuthenticated ? 'Готов к ревью' : 'Ожидает входа'}
-          </p>
-        </header>
-
-        <section className="landing-hero" aria-label="Быстрый старт">
-          <div className="landing-hero__content">
-            <p className="landing-ready">{readyText}</p>
-            <div className="landing-actions">
-              <Link className="landing-action landing-action--primary" to={primaryAction.to}>
+            <div className="landing-hero__actions">
+              <Link className="ui-btn ui-btn--primary landing-cta" to={primaryAction.to}>
                 {primaryAction.label}
               </Link>
-              <Link className="landing-action" to="/docs">
+            </div>
+            <p className="landing-hint">
+              {readyText}{' '}
+              <Link className="landing-text-link" to="/docs">
                 Открыть документацию
               </Link>
-            </div>
+            </p>
           </div>
 
-          <aside className="landing-hero__stats" aria-label="Ключевые преимущества">
-            <article>
-              <p className="stat-value">1 поток</p>
-              <p className="stat-label">коммиты, PR/MR и рекомендации в одной панели</p>
-            </article>
-            <article>
-              <p className="stat-value">До мержа</p>
-              <p className="stat-label">проблемные места видны до попадания в main</p>
-            </article>
-            <article>
-              <p className="stat-value">История</p>
-              <p className="stat-label">каждое решение сохраняет контекст команды</p>
-            </article>
+          <aside className="landing-hero__context" aria-label="Контекст продукта">
+            <p className={`landing-status ${isAuthenticated ? 'landing-status--ready' : ''}`}>
+              {isAuthenticated ? 'Готово к запуску ревью' : 'Требуется вход в систему'}
+            </p>
+            <ul className="landing-context-list">
+              {contextBullets.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
           </aside>
+        </header>
+
+        <section className="landing-flow ui-panel" aria-label="Основной процесс">
+          <header className="landing-section-head">
+            <p className="landing-section-eyebrow">Основной процесс</p>
+            <h2>От подключения до публикации замечаний</h2>
+          </header>
+          <div className="landing-flow__steps">
+            {workflow.map((step, index) => (
+              <article key={step.title} className="landing-step">
+                <p className="landing-step__index">Шаг {index + 1}</p>
+                <h3>{step.title}</h3>
+                <p>{step.detail}</p>
+              </article>
+            ))}
+          </div>
         </section>
 
-        <section className="landing-workflow" aria-label="Как это работает">
-          {workflow.map((step, index) => (
-            <article key={step.title}>
-              <p className="workflow-step">Шаг {index + 1}</p>
-              <h3>{step.title}</h3>
-              <p>{step.detail}</p>
-            </article>
-          ))}
-        </section>
-
-        <section className="landing-highlights" aria-label="Основные возможности">
+        <section className="landing-highlights" aria-label="Ключевые преимущества">
           {highlights.map((block) => (
-            <article key={block.title}>
+            <article key={block.title} className="landing-highlight ui-panel">
               <h3>{block.title}</h3>
               <p>{block.detail}</p>
             </article>
