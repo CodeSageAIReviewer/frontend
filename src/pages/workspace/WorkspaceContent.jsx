@@ -121,6 +121,73 @@ const toJsonString = (value) => {
   }
 }
 
+const buildOutputMeta = (text, kindLabel) => {
+  if (!text) {
+    return `${kindLabel} · нет данных`
+  }
+  const lineCount = text.split('\n').length
+  return `${kindLabel} · ${lineCount} строк · ${text.length} симв.`
+}
+
+function MergeRequestsSkeleton() {
+  return (
+    <div className="merge-requests-skeleton" aria-hidden="true">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={`mr-skeleton-${index}`} className="merge-requests-skeleton__item">
+          <span className="ui-skeleton merge-requests-skeleton__title" />
+          <span className="ui-skeleton merge-requests-skeleton__meta" />
+          <span className="ui-skeleton merge-requests-skeleton__branches" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ReviewRunsSkeleton() {
+  return (
+    <div className="review-runs-skeleton" aria-hidden="true">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={`run-skeleton-${index}`} className="review-runs-skeleton__item">
+          <span className="ui-skeleton review-runs-skeleton__top" />
+          <span className="ui-skeleton review-runs-skeleton__line" />
+          <span className="ui-skeleton review-runs-skeleton__line review-runs-skeleton__line--short" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ReviewSummarySkeleton() {
+  return (
+    <div className="review-summary review-summary--skeleton" aria-hidden="true">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div key={`summary-skeleton-${index}`} className="review-summary__card">
+          <span className="ui-skeleton review-summary__skeleton-label" />
+          <span className="ui-skeleton review-summary__skeleton-value" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ReviewCommentsSkeleton() {
+  return (
+    <div className="review-comments review-comments--skeleton" aria-hidden="true">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div key={`comment-skeleton-${index}`} className="review-comment review-comment--skeleton">
+          <div className="review-comment__header review-comment__header--skeleton">
+            <span className="ui-skeleton review-comment__skeleton-badge" />
+            <span className="ui-skeleton review-comment__skeleton-type" />
+            <span className="ui-skeleton review-comment__skeleton-file" />
+          </div>
+          <span className="ui-skeleton review-comment__skeleton-text" />
+          <span className="ui-skeleton review-comment__skeleton-text review-comment__skeleton-text--short" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function MergeRequestsCard({ workspaceId, repository }) {
   const repositoryId = repository?.id ?? repository?.external_id
   const [mergeRequests, setMergeRequests] = useState([])
@@ -163,6 +230,8 @@ function MergeRequestsCard({ workspaceId, repository }) {
   const [reviewRefreshKey, setReviewRefreshKey] = useState(0)
   const [queueRefreshIn, setQueueRefreshIn] = useState(0)
   const [publishOnComplete, setPublishOnComplete] = useState(true)
+  const [isStructuredOutputOpen, setIsStructuredOutputOpen] = useState(false)
+  const [isRawOutputOpen, setIsRawOutputOpen] = useState(false)
 
   const handleSyncClick = useCallback(async () => {
     if (!workspaceId || !repositoryId) {
@@ -225,7 +294,7 @@ function MergeRequestsCard({ workspaceId, repository }) {
         if (canceled) {
           return
         }
-        setError(fetchError.message ?? 'Не удалось загрузить merge requests.')
+        setError(fetchError.message ?? 'Не удалось загрузить MR.')
       } finally {
         if (!canceled) {
           setLoading(false)
@@ -242,6 +311,10 @@ function MergeRequestsCard({ workspaceId, repository }) {
 
   const hasExtra = mergeRequests.length > 3
   const visibleRequests = showAll ? mergeRequests : mergeRequests.slice(0, 3)
+  const structuredOutputText = toJsonString(
+    reviewDetail?.structured_output ?? reviewDetail?.structured ?? '',
+  )
+  const rawOutputText = toJsonString(reviewDetail?.raw_output ?? reviewDetail?.raw_response ?? '')
 
   const selectedMrId = useMemo(
     () =>
@@ -309,6 +382,8 @@ function MergeRequestsCard({ workspaceId, repository }) {
     setLlmIntegrationsError('')
     setLlmIntegrationsLoading(false)
     setPublishOnComplete(true)
+    setIsStructuredOutputOpen(false)
+    setIsRawOutputOpen(false)
   }, [])
 
   const fetchReviewRuns = useCallback(
@@ -514,7 +589,7 @@ function MergeRequestsCard({ workspaceId, repository }) {
       return
     }
     if (!workspaceId || !selectedMrId) {
-      setReviewRunsError('Недоступен ID merge request.')
+      setReviewRunsError('Недоступен ID MR.')
       return
     }
     fetchReviewRuns(selectedMrId)
@@ -644,8 +719,8 @@ function MergeRequestsCard({ workspaceId, repository }) {
     <article className="merge-requests-card">
       <header className="merge-requests-card__header">
         <div>
-          <p className="merge-requests-card__label">ЗАПРОСЫ НА СЛИЯНИЕ ИЗ GITLAB/GITHUB</p>
-          <h2>Запросы на слияние</h2>
+          <p className="merge-requests-card__label">MR ИЗ GITLAB/GITHUB</p>
+          <h2>Список MR</h2>
         </div>
         <button
           type="button"
@@ -715,9 +790,7 @@ function MergeRequestsCard({ workspaceId, repository }) {
         </p>
       )}
       {loading ? (
-        <p className="merge-requests-card__status merge-requests-card__status--loading">
-          Загружаю запросы на слияние…
-        </p>
+        <MergeRequestsSkeleton />
       ) : error ? (
         <p className="merge-requests-card__status merge-requests-card__status--error">{error}</p>
       ) : mergeRequests.length === 0 ? (
@@ -734,10 +807,10 @@ function MergeRequestsCard({ workspaceId, repository }) {
             </svg>
           </div>
           <p className="merge-requests-card__empty-title">
-            В этом репозитории нет запросов на слияние.
+            В этом репозитории пока нет MR.
           </p>
           <p className="merge-requests-card__empty-body">
-            Синхронизируйте информацию, чтобы увидеть последние запросы на слияние.
+            Синхронизируйте данные, чтобы увидеть актуальные MR.
           </p>
           <button
             type="button"
@@ -834,7 +907,7 @@ function MergeRequestsCard({ workspaceId, repository }) {
           >
             <header className="review-modal__header">
               <div>
-                <p className="review-modal__eyebrow">AI Review для merge request</p>
+                <p className="review-modal__eyebrow">AI-ревью для MR</p>
                 <h2 id="mr-review-title">
                   MR #{selectedReviewMr.iid ?? selectedReviewMr.id ?? '—'} ·{' '}
                   {selectedReviewMr.title}
@@ -909,7 +982,10 @@ function MergeRequestsCard({ workspaceId, repository }) {
                     </select>
                   </label>
                   {llmIntegrationsLoading && (
-                    <p className="review-empty">Загружаю список интеграций…</p>
+                    <div className="review-inline-skeleton" aria-hidden="true">
+                      <span className="ui-skeleton review-inline-skeleton__line" />
+                      <span className="ui-skeleton review-inline-skeleton__line review-inline-skeleton__line--short" />
+                    </div>
                   )}
                   {llmIntegrationsError && (
                     <p className="review-error">{llmIntegrationsError}</p>
@@ -967,7 +1043,7 @@ function MergeRequestsCard({ workspaceId, repository }) {
                     <span className="review-panel__count">{reviewRuns.length}</span>
                   </div>
                   {reviewRunsLoading ? (
-                    <p className="review-empty">Загружаю историю ревью…</p>
+                    <ReviewRunsSkeleton />
                   ) : reviewRunsError ? (
                     <p className="review-error">{reviewRunsError}</p>
                   ) : reviewRuns.length === 0 ? (
@@ -1050,30 +1126,32 @@ function MergeRequestsCard({ workspaceId, repository }) {
                     </button>
                   </div>
                 </div>
-                {reviewDetailLoading && <p className="review-empty">Загружаю детали…</p>}
+                {reviewDetailLoading && <ReviewSummarySkeleton />}
                 {reviewDetailError && <p className="review-error">{reviewDetailError}</p>}
-                <div className="review-summary">
-                  <div className="review-summary__card">
-                    <p>Статус</p>
-                    <strong>
-                      {activeReviewRun?.status
-                        ? reviewStatusLabelMap[activeReviewRun.status]
-                        : '—'}
-                    </strong>
+                {!reviewDetailLoading && (
+                  <div className="review-summary">
+                    <div className="review-summary__card">
+                      <p>Статус</p>
+                      <strong>
+                        {activeReviewRun?.status
+                          ? reviewStatusLabelMap[activeReviewRun.status]
+                          : '—'}
+                      </strong>
+                    </div>
+                    <div className="review-summary__card">
+                      <p>Комментарии</p>
+                      <strong>{commentCount}</strong>
+                    </div>
+                    <div className="review-summary__card">
+                      <p>Файлы</p>
+                      <strong>{fileCount}</strong>
+                    </div>
+                    <div className="review-summary__card">
+                      <p>Серьёзные</p>
+                      <strong>{errorCount}</strong>
+                    </div>
                   </div>
-                  <div className="review-summary__card">
-                    <p>Комментарии</p>
-                    <strong>{commentCount}</strong>
-                  </div>
-                  <div className="review-summary__card">
-                    <p>Файлы</p>
-                    <strong>{fileCount}</strong>
-                  </div>
-                  <div className="review-summary__card">
-                    <p>Серьёзные</p>
-                    <strong>{errorCount}</strong>
-                  </div>
-                </div>
+                )}
                 <div className="review-filters">
                   <label>
                     Серьёзность
@@ -1127,7 +1205,7 @@ function MergeRequestsCard({ workspaceId, repository }) {
                   </label>
                 </div>
                 {reviewCommentsLoading ? (
-                  <p className="review-empty">Загружаю комментарии…</p>
+                  <ReviewCommentsSkeleton />
                 ) : reviewCommentsError ? (
                   <p className="review-error">{reviewCommentsError}</p>
                 ) : reviewComments.length === 0 ? (
@@ -1174,20 +1252,43 @@ function MergeRequestsCard({ workspaceId, repository }) {
                     })}
                   </div>
                 )}
-                <div className="review-output">
-                  <h4>Структурированный вывод</h4>
-                  <pre>
-                    {toJsonString(
-                      reviewDetail?.structured_output ?? reviewDetail?.structured ?? '',
-                    ) || 'Нет данных'}
-                  </pre>
+                <div className={`review-output ${isStructuredOutputOpen ? 'is-open' : ''}`}>
+                  <button
+                    type="button"
+                    className="review-output__toggle"
+                    onClick={() => setIsStructuredOutputOpen((prev) => !prev)}
+                    aria-expanded={isStructuredOutputOpen}
+                  >
+                    <span className="review-output__title">Структурированный вывод</span>
+                    <span className="review-output__meta">
+                      {buildOutputMeta(structuredOutputText, 'JSON')}
+                    </span>
+                    <span
+                      className={`review-output__chevron ${
+                        isStructuredOutputOpen ? 'is-open' : ''
+                      }`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                  {isStructuredOutputOpen && <pre>{structuredOutputText || 'Нет данных'}</pre>}
                 </div>
-                <div className="review-output">
-                  <h4>Сырой вывод</h4>
-                  <pre>
-                    {toJsonString(reviewDetail?.raw_output ?? reviewDetail?.raw_response ?? '') ||
-                      'Нет данных'}
-                  </pre>
+                <div className={`review-output ${isRawOutputOpen ? 'is-open' : ''}`}>
+                  <button
+                    type="button"
+                    className="review-output__toggle"
+                    onClick={() => setIsRawOutputOpen((prev) => !prev)}
+                    aria-expanded={isRawOutputOpen}
+                  >
+                    <span className="review-output__title">Сырой вывод</span>
+                    <span className="review-output__meta">
+                      {buildOutputMeta(rawOutputText, 'Текст')}
+                    </span>
+                    <span
+                      className={`review-output__chevron ${isRawOutputOpen ? 'is-open' : ''}`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                  {isRawOutputOpen && <pre>{rawOutputText || 'Нет данных'}</pre>}
                 </div>
               </section>
             </div>
@@ -1259,12 +1360,12 @@ function WorkspaceContent({
             {showActivePanel ? (
               <div className="workspace-panel ui-panel">
                 <div className="workspace-panel__heading">
-                  <div>
-                    <p className="workspace-panel__eyebrow">{activeInfo.subtitle}</p>
-                    <h1>{activeInfo.title}</h1>
+                  <div className="workspace-panel__header-copy page-header page-header--compact">
+                    <p className="workspace-panel__eyebrow page-header__eyebrow">{activeInfo.subtitle}</p>
+                    <h1 className="page-header__title">{activeInfo.title}</h1>
+                    <p className="workspace-panel__description page-header__description">{activeInfo.body}</p>
                   </div>
                 </div>
-                <p className="workspace-panel__description">{activeInfo.body}</p>
                 {selectedWorkspace && (
                   <>
                     <div className="workspace-panel__actions">
@@ -1353,18 +1454,23 @@ function WorkspaceContent({
                 </div>
                 <h3>
                   {workspacesLoading
-                    ? 'Загружаем рабочие пространства'
+                    ? 'Подготавливаем рабочие пространства'
                     : workspacesError
                       ? 'Рабочие пространства недоступны'
                       : 'Рабочее пространство не выбрано'}
                 </h3>
-                <p className="workspace-empty__description">
-                  {workspacesLoading
-                    ? 'Подождите пару секунд, список рабочих пространств скоро появится.'
-                    : workspacesError
+                {workspacesLoading ? (
+                  <div className="workspace-empty__skeleton" aria-hidden="true">
+                    <span className="ui-skeleton workspace-empty__skeleton-line" />
+                    <span className="ui-skeleton workspace-empty__skeleton-line workspace-empty__skeleton-line--short" />
+                  </div>
+                ) : (
+                  <p className="workspace-empty__description">
+                    {workspacesError
                       ? 'Не удалось получить список рабочих пространств. Попробуйте снова.'
                       : 'Пора создать пространство и привести все задачи в одну панель.'}
-                </p>
+                  </p>
+                )}
                 <div className="workspace-empty__actions">
                   {workspacesError ? (
                     <button type="button" className="ui-btn ui-btn--secondary" onClick={onRetryWorkspaces}>

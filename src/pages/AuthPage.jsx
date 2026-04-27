@@ -25,6 +25,10 @@ function AuthPage() {
   const [errors, setErrors] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+  const [isPassword2Visible, setIsPassword2Visible] = useState(false)
+  const [isCapsLockOnPassword, setIsCapsLockOnPassword] = useState(false)
+  const [isCapsLockOnPassword2, setIsCapsLockOnPassword2] = useState(false)
 
   const navigate = useNavigate()
   const { login } = useAuth()
@@ -37,6 +41,10 @@ function AuthPage() {
     setForm(initialForm)
     setErrors(null)
     setSuccessMessage('')
+    setIsPasswordVisible(false)
+    setIsPassword2Visible(false)
+    setIsCapsLockOnPassword(false)
+    setIsCapsLockOnPassword2(false)
   }
 
   const handleChange = (event) => {
@@ -45,6 +53,8 @@ function AuthPage() {
   }
 
   const currentMode = modeConfig[mode]
+  const isAnyCapsLockOn =
+    isCapsLockOnPassword || (mode === 'signup' && isCapsLockOnPassword2)
 
   const errorText = useMemo(() => {
     if (!errors) return ''
@@ -89,15 +99,42 @@ function AuthPage() {
     }
   }
 
+  const handleCapsLockHint = (event, setState) => {
+    setState(event.getModifierState('CapsLock'))
+  }
+
+  const EyeIcon = ({ crossed = false }) => (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M2 12c2.4-3.6 5.8-5.4 10-5.4S19.6 8.4 22 12c-2.4 3.6-5.8 5.4-10 5.4S4.4 15.6 2 12Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="12" r="3.1" stroke="currentColor" strokeWidth="1.7" />
+      {crossed && (
+        <path
+          d="M4 20 20 4"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+      )}
+    </svg>
+  )
+
   return (
     <main className="auth-page">
       <section className="auth-layout">
         <article className="auth-intro ui-panel">
-          <p className="auth-intro__eyebrow">CodeSage · Авторизация</p>
-          <h1>AI Code Review Control Room</h1>
-          <p className="auth-intro__text">
-            Единая точка входа для подключения интеграций и запуска проверок качества кода перед merge.
-          </p>
+          <div className="auth-intro__header page-header page-header--compact">
+            <p className="auth-intro__eyebrow page-header__eyebrow">CodeSage · Авторизация</p>
+            <h1 className="page-header__title">AI Code Review Control Room</h1>
+            <p className="auth-intro__text page-header__description">
+              Единая точка входа для подключения интеграций и запуска проверок качества кода перед merge.
+            </p>
+          </div>
           <ul className="auth-intro__list">
             <li>Подключение LLM провайдеров и Git репозиториев</li>
             <li>Запуски ревью и история результатов</li>
@@ -150,29 +187,62 @@ function AuthPage() {
           </label>
           <label className="ui-field">
             <span>Пароль</span>
-            <input
-              className="ui-input"
-              name="password"
-              type="password"
-              value={form.password}
-              onChange={handleChange}
-              required
-              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-            />
+            <span className="auth-password">
+              <input
+                className="ui-input auth-password__input"
+                name="password"
+                type={isPasswordVisible ? 'text' : 'password'}
+                value={form.password}
+                onChange={handleChange}
+                onKeyDown={(event) => handleCapsLockHint(event, setIsCapsLockOnPassword)}
+                onKeyUp={(event) => handleCapsLockHint(event, setIsCapsLockOnPassword)}
+                onBlur={() => setIsCapsLockOnPassword(false)}
+                required
+                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+              />
+              <button
+                type="button"
+                className="auth-password__toggle"
+                onClick={() => setIsPasswordVisible((prev) => !prev)}
+                aria-label={isPasswordVisible ? 'Скрыть пароль' : 'Показать пароль'}
+                aria-pressed={isPasswordVisible}
+              >
+                <EyeIcon crossed={isPasswordVisible} />
+              </button>
+            </span>
           </label>
           {mode === 'signup' && (
             <label className="ui-field">
               <span>Повторите пароль</span>
-              <input
-                className="ui-input"
-                name="password2"
-                type="password"
-                value={form.password2}
-                onChange={handleChange}
-                required
-                autoComplete="new-password"
-              />
+              <span className="auth-password">
+                <input
+                  className="ui-input auth-password__input"
+                  name="password2"
+                  type={isPassword2Visible ? 'text' : 'password'}
+                  value={form.password2}
+                  onChange={handleChange}
+                  onKeyDown={(event) => handleCapsLockHint(event, setIsCapsLockOnPassword2)}
+                  onKeyUp={(event) => handleCapsLockHint(event, setIsCapsLockOnPassword2)}
+                  onBlur={() => setIsCapsLockOnPassword2(false)}
+                  required
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className="auth-password__toggle"
+                  onClick={() => setIsPassword2Visible((prev) => !prev)}
+                  aria-label={isPassword2Visible ? 'Скрыть пароль' : 'Показать пароль'}
+                  aria-pressed={isPassword2Visible}
+                >
+                  <EyeIcon crossed={isPassword2Visible} />
+                </button>
+              </span>
             </label>
+          )}
+          {isAnyCapsLockOn && (
+            <p className="ui-status ui-status--warning" role="status">
+              Включён CapsLock. Проверьте регистр символов перед отправкой.
+            </p>
           )}
           {errorText && <p className="error-text ui-status ui-status--danger">{errorText}</p>}
           {successMessage && <p className="success-text ui-status ui-status--success">{successMessage}</p>}

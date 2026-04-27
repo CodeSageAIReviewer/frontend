@@ -20,7 +20,7 @@ const SCROLL_OFFSET = 108
 const QUICK_START = [
   'Подключите LLM-провайдера и Git-интеграцию.',
   'Создайте workspace и добавьте репозиторий.',
-  'Откройте Merge Request (MR) и запустите AI-ревью.',
+  'Откройте MR и запустите AI-ревью.',
   'Проверьте замечания, при необходимости опубликуйте комментарии в MR.',
 ]
 
@@ -119,7 +119,7 @@ const DOC_SECTIONS = [
     id: 'repository',
     label: 'Repository',
     summary:
-      'В этом разделе описано добавление репозитория и переход к списку Merge Request (MR).',
+      'В этом разделе описано добавление репозитория и переход к списку MR.',
     quickFacts: ['Выбор репозитория из интеграции', 'Подтверждение добавления', 'Переход к списку MR'],
     blocks: [
       {
@@ -138,7 +138,7 @@ const DOC_SECTIONS = [
       {
         type: 'figure',
         src: repositoryPageScreenshot,
-        alt: 'Страница репозитория со списком Merge Request',
+        alt: 'Страница репозитория со списком MR',
         caption: 'Страница репозитория со списком MR',
       },
       {
@@ -151,7 +151,7 @@ const DOC_SECTIONS = [
   },
   {
     id: 'merge-request',
-    label: 'Merge Request (MR)',
+    label: 'MR',
     summary:
       'Полный путь работы с MR: список, запуск AI-ревью, история запусков, фильтры и публикация комментариев.',
     quickFacts: ['Фильтры по статусу и названию', 'Запуск и повторный запуск ревью', 'Публикация комментариев в MR'],
@@ -159,8 +159,8 @@ const DOC_SECTIONS = [
       {
         type: 'figure',
         src: mrListScreenshot,
-        alt: 'Список Merge Request',
-        caption: 'Список Merge Request (MR)',
+        alt: 'Список MR',
+        caption: 'Список MR',
       },
       {
         type: 'list',
@@ -175,7 +175,7 @@ const DOC_SECTIONS = [
       {
         type: 'figure',
         src: mrDetailScreenshot,
-        alt: 'Подробный просмотр Merge Request',
+        alt: 'Подробный просмотр MR',
         caption: 'Панель управления ревью внутри MR',
       },
       {
@@ -256,7 +256,7 @@ const DOC_SECTIONS = [
         type: 'callout',
         tone: 'tip',
         title: 'Публикация в MR',
-        text: 'Кнопка Publish to MR отправляет подготовленные комментарии в выбранный Merge Request.',
+        text: 'Кнопка «Опубликовать в MR» отправляет подготовленные комментарии в выбранный MR.',
       },
     ],
   },
@@ -267,8 +267,39 @@ const INITIAL_COLLAPSED = DOC_SECTIONS.reduce((acc, section, index) => {
   return acc
 }, {})
 
+function DocsSectionsSkeleton() {
+  return (
+    <div className="docs-sections-skeleton" aria-hidden="true">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <article key={`docs-skeleton-${index}`} className="docs-section docs-section--skeleton">
+          <div className="docs-section__head">
+            <div className="docs-section__head-copy">
+              <span className="ui-skeleton docs-skeleton__eyebrow" />
+              <span className="ui-skeleton docs-skeleton__title" />
+            </div>
+            <span className="ui-skeleton docs-skeleton__toggle" />
+          </div>
+          <span className="ui-skeleton docs-skeleton__summary" />
+          <div className="docs-skeleton__facts">
+            <span className="ui-skeleton docs-skeleton__fact" />
+            <span className="ui-skeleton docs-skeleton__fact" />
+            <span className="ui-skeleton docs-skeleton__fact docs-skeleton__fact--short" />
+          </div>
+          <div className="docs-skeleton__body">
+            <span className="ui-skeleton docs-skeleton__line" />
+            <span className="ui-skeleton docs-skeleton__line" />
+            <span className="ui-skeleton docs-skeleton__line docs-skeleton__line--short" />
+          </div>
+        </article>
+      ))}
+    </div>
+  )
+}
+
 function DocsPage() {
+  const pageRef = useRef(null)
   const sectionRefs = useRef({})
+  const scrollContainerRef = useRef(null)
   const validIds = useMemo(() => DOC_SECTIONS.map((section) => section.id), [])
 
   const hashSection = useMemo(() => {
@@ -282,8 +313,30 @@ function DocsPage() {
     next[hashSection] = false
     return next
   })
+  const [sectionsLoading, setSectionsLoading] = useState(true)
   const [lightbox, setLightbox] = useState(null)
   const [isBackTopVisible, setIsBackTopVisible] = useState(false)
+
+  const resolveScrollContainer = useCallback(() => {
+    if (scrollContainerRef.current) {
+      return scrollContainerRef.current
+    }
+
+    const fromPage = pageRef.current?.closest('.page-content')
+    if (fromPage) {
+      scrollContainerRef.current = fromPage
+      return fromPage
+    }
+
+    return window
+  }, [])
+
+  const getScrollTop = useCallback((container) => {
+    if (!container || container === window) {
+      return window.scrollY
+    }
+    return container.scrollTop
+  }, [])
 
   const setSectionNode = useCallback((sectionId, node) => {
     if (!node) {
@@ -306,12 +359,20 @@ function DocsPage() {
       return
     }
 
-    const top = node.getBoundingClientRect().top + window.scrollY - SCROLL_OFFSET
-    window.scrollTo({
-      top,
-      behavior: smooth ? 'smooth' : 'auto',
-    })
-  }, [])
+    const container = resolveScrollContainer()
+    const behavior = smooth ? 'smooth' : 'auto'
+
+    if (container === window) {
+      const top = node.getBoundingClientRect().top + window.scrollY - SCROLL_OFFSET
+      window.scrollTo({ top, behavior })
+      return
+    }
+
+    const containerRect = container.getBoundingClientRect()
+    const nodeRect = node.getBoundingClientRect()
+    const top = nodeRect.top - containerRect.top + container.scrollTop - SCROLL_OFFSET
+    container.scrollTo({ top, behavior })
+  }, [resolveScrollContainer])
 
   const handleSectionOpen = useCallback(
     (event, sectionId) => {
@@ -328,6 +389,11 @@ function DocsPage() {
       ...prev,
       [sectionId]: !prev[sectionId],
     }))
+  }, [])
+
+  useEffect(() => {
+    scrollContainerRef.current =
+      pageRef.current?.closest('.page-content') ?? document.querySelector('.page-content') ?? window
   }, [])
 
   useEffect(() => {
@@ -349,7 +415,7 @@ function DocsPage() {
         setActiveSection((prev) => (prev === topVisible ? prev : topVisible))
       },
       {
-        root: null,
+        root: resolveScrollContainer() === window ? null : resolveScrollContainer(),
         rootMargin: '-120px 0px -45% 0px',
         threshold: [0.2, 0.35, 0.5, 0.7],
       },
@@ -365,7 +431,15 @@ function DocsPage() {
     return () => {
       observer.disconnect()
     }
-  }, [validIds])
+  }, [resolveScrollContainer, validIds])
+
+  useEffect(() => {
+    const timerId = window.setTimeout(() => {
+      setSectionsLoading(false)
+    }, 320)
+
+    return () => window.clearTimeout(timerId)
+  }, [])
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -409,27 +483,30 @@ function DocsPage() {
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsBackTopVisible(window.scrollY > 520)
+      const container = resolveScrollContainer()
+      setIsBackTopVisible(getScrollTop(container) > 520)
     }
 
+    const container = resolveScrollContainer()
     handleScroll()
-    window.addEventListener('scroll', handleScroll, { passive: true })
+    container.addEventListener('scroll', handleScroll, { passive: true })
     return () => {
-      window.removeEventListener('scroll', handleScroll)
+      container.removeEventListener('scroll', handleScroll)
     }
-  }, [])
+  }, [getScrollTop, resolveScrollContainer])
 
   const backToTop = useCallback(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [])
+    const container = resolveScrollContainer()
+    container.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [resolveScrollContainer])
 
   return (
-    <main className="docs-page" id="docs-top">
+    <main className="docs-page" id="docs-top" ref={pageRef}>
       <header className="docs-hero">
         <div className="docs-hero__top">
-          <div>
-            <p className="docs-eyebrow">Documentation</p>
-            <h1>Руководство пользователя CodeSage</h1>
+          <div className="docs-hero__heading page-header page-header--compact">
+            <p className="docs-eyebrow page-header__eyebrow">Documentation</p>
+            <h1 className="page-header__title">Руководство пользователя CodeSage</h1>
           </div>
           <div className="docs-meta" aria-label="Метаданные документации">
             <p>Версия: {DOC_VERSION}</p>
@@ -478,8 +555,11 @@ function DocsPage() {
           </ul>
         </nav>
 
-        <div className="docs-content">
-          {DOC_SECTIONS.map((section) => {
+        <div className="docs-content" aria-busy={sectionsLoading}>
+          {sectionsLoading ? (
+            <DocsSectionsSkeleton />
+          ) : (
+            DOC_SECTIONS.map((section) => {
             const isActive = section.id === activeSection
             const isCollapsed = collapsedSections[section.id]
 
@@ -595,7 +675,8 @@ function DocsPage() {
                 )}
               </section>
             )
-          })}
+            })
+          )}
         </div>
       </div>
 

@@ -128,6 +128,62 @@ a {
   color: inherit;
 }
 
+/* Unified page header pattern */
+.page-header {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  min-height: clamp(136px, 16vw, 172px);
+}
+
+.page-header--compact {
+  min-height: clamp(112px, 12vw, 140px);
+}
+
+.page-header__eyebrow {
+  margin: 0;
+  color: var(--color-text-muted);
+  font: var(--type-caption);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.page-header__title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font: var(--type-h1);
+  max-width: 22ch;
+}
+
+.page-header--compact .page-header__title {
+  font: var(--type-h2);
+}
+
+.page-header__description {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font: var(--type-body-s);
+  max-width: 72ch;
+}
+
+.page-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (max-width: 760px) {
+  .page-header,
+  .page-header--compact {
+    min-height: auto;
+  }
+
+  .page-header__title {
+    max-width: none;
+  }
+}
+
 /* Unified UI primitives */
 .ui-panel {
   background: var(--color-bg-surface);
@@ -352,11 +408,62 @@ a {
   color: var(--color-info);
 }
 
+.ui-skeleton {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: var(--radius-1);
+  background: color-mix(in oklab, var(--color-bg-elevated) 88%, white);
+}
+
+.ui-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in oklab, var(--color-bg-surface) 76%, transparent) 45%,
+    transparent 100%
+  );
+  animation: skeleton-shimmer 1.25s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+
   .ui-btn,
   .ui-input,
   .ui-select,
-  .ui-textarea {
-    transition: none;
+  .ui-textarea,
+  .ui-skeleton::after {
+    transition: none !important;
+  }
+
+  .ui-btn:hover:not(:disabled) {
+    transform: none !important;
+  }
+
+  .ui-skeleton::after {
+    animation: none !important;
+    transform: none !important;
   }
 }

@@ -30,25 +30,19 @@
   gap: var(--space-3);
 }
 
-.auth-intro__eyebrow {
-  margin: 0;
-  color: var(--color-text-muted);
-  font: var(--type-caption);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+.auth-intro__header {
+  gap: var(--space-2);
 }
 
-.auth-intro h1 {
-  margin: 0;
-  color: var(--color-text-primary);
-  font: var(--type-h2);
+.auth-intro__eyebrow {
+  letter-spacing: 0.14em;
+}
+
+.auth-intro .page-header__title {
   max-width: 16ch;
 }
 
 .auth-intro__text {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font: var(--type-body-s);
   max-width: 44ch;
 }
 
@@ -118,6 +112,50 @@
 .auth-form {
   display: grid;
   gap: var(--space-3);
+}
+
+.auth-password {
+  position: relative;
+  display: flex;
+}
+
+.auth-password__input {
+  padding-right: 2.8rem;
+}
+
+.auth-password__toggle {
+  position: absolute;
+  top: 50%;
+  right: var(--space-2);
+  width: 28px;
+  height: 28px;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-1);
+  cursor: pointer;
+  transition:
+    color var(--motion-base) var(--easing-standard),
+    background-color var(--motion-base) var(--easing-standard);
+}
+
+.auth-password__toggle:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in oklab, var(--color-bg-elevated) 80%, white);
+}
+
+.auth-password__toggle:focus-visible {
+  outline: 3px solid color-mix(in oklab, var(--color-accent) 24%, transparent);
+  outline-offset: 1px;
+}
+
+.auth-password__toggle svg {
+  width: 18px;
+  height: 18px;
 }
 
 .auth-submit {

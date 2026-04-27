@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { FaGithub } from 'react-icons/fa'
 import { FaGitlab } from 'react-icons/fa6'
 
@@ -8,21 +8,28 @@ const providerIcons = {
 }
 
 const integrationFieldHints = {
-  baseUrl:
-    'Base URL — адрес API вашего Git-провайдера. Для GitHub Cloud обычно подходит https://api.github.com, для GitLab Cloud — https://gitlab.com/api/v4. Для self-hosted укажите URL вашего инстанса API.',
-  accessToken:
-    'Токен доступа нужен, чтобы читать репозитории, ветки и merge requests. Создаётся в настройках Personal Access Token GitHub/GitLab с правами чтения репозиториев и MR/PR.',
-  refreshToken:
-    'Токен обновления нужен не всегда. Заполняйте его, только если ваш провайдер интеграции выдает refresh token для продления access token.',
+  base_url: {
+    title: 'Базовый URL',
+    text:
+      'Base URL — адрес API вашего Git-провайдера. Для GitHub Cloud обычно подходит https://api.github.com, для GitLab Cloud — https://gitlab.com/api/v4. Для self-hosted укажите URL вашего инстанса API.',
+  },
+  access_token: {
+    title: 'Токен доступа',
+    text:
+      'Токен доступа нужен, чтобы читать репозитории, ветки и merge requests. Создаётся в настройках Personal Access Token GitHub/GitLab с правами чтения репозиториев и MR/PR.',
+  },
+  refresh_token: {
+    title: 'Токен обновления',
+    text:
+      'Токен обновления нужен не всегда. Заполняйте его, только если ваш провайдер интеграции выдает refresh token для продления access token.',
+  },
 }
 
 function FieldLabelWithHint({
   label,
-  hint,
-  hintId,
+  hintKey,
   isActive,
-  onOpenHint,
-  onCloseHint,
+  onToggleHint,
 }) {
   return (
     <span className="integration-field-label">
@@ -31,22 +38,12 @@ function FieldLabelWithHint({
         type="button"
         className="integration-tooltip"
         aria-label={`Показать подсказку: ${label}`}
-        aria-describedby={hintId}
+        aria-haspopup="dialog"
         aria-expanded={isActive}
-        onMouseEnter={onOpenHint}
-        onMouseLeave={onCloseHint}
-        onFocus={onOpenHint}
-        onBlur={onCloseHint}
-        onClick={onOpenHint}
+        onClick={() => onToggleHint(hintKey)}
       >
         ?
       </button>
-      {isActive && (
-        <div className="integration-help-popover" role="tooltip" id={hintId}>
-          <p className="integration-help-popover__title">{label}</p>
-          <p className="integration-help-popover__text">{hint}</p>
-        </div>
-      )}
     </span>
   )
 }
@@ -78,6 +75,28 @@ function IntegrationSection({
   onOpenRepositoryModal,
 }) {
   const [activeHint, setActiveHint] = useState('')
+  const activeHintContent = useMemo(
+    () =>
+      isAddingIntegration && activeHint
+        ? integrationFieldHints[activeHint]
+        : null,
+    [activeHint, isAddingIntegration],
+  )
+
+  useEffect(() => {
+    if (!activeHint) {
+      return undefined
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setActiveHint('')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [activeHint])
 
   if (!isActive) {
     return null
@@ -222,12 +241,10 @@ function IntegrationSection({
             <label className="ui-field">
               <FieldLabelWithHint
                 label="Базовый URL"
-                hint={integrationFieldHints.baseUrl}
-                hintId="integration-base-url-hint"
+                hintKey="base_url"
                 isActive={activeHint === 'base_url'}
-                onOpenHint={() => setActiveHint('base_url')}
-                onCloseHint={() =>
-                  setActiveHint((prev) => (prev === 'base_url' ? '' : prev))
+                onToggleHint={(hintKey) =>
+                  setActiveHint((prev) => (prev === hintKey ? '' : hintKey))
                 }
               />
               <input
@@ -243,12 +260,10 @@ function IntegrationSection({
             <label className="ui-field">
               <FieldLabelWithHint
                 label="Токен доступа"
-                hint={integrationFieldHints.accessToken}
-                hintId="integration-access-token-hint"
+                hintKey="access_token"
                 isActive={activeHint === 'access_token'}
-                onOpenHint={() => setActiveHint('access_token')}
-                onCloseHint={() =>
-                  setActiveHint((prev) => (prev === 'access_token' ? '' : prev))
+                onToggleHint={(hintKey) =>
+                  setActiveHint((prev) => (prev === hintKey ? '' : hintKey))
                 }
               />
               <input
@@ -264,12 +279,10 @@ function IntegrationSection({
             <label className="ui-field">
               <FieldLabelWithHint
                 label="Токен обновления"
-                hint={integrationFieldHints.refreshToken}
-                hintId="integration-refresh-token-hint"
+                hintKey="refresh_token"
                 isActive={activeHint === 'refresh_token'}
-                onOpenHint={() => setActiveHint('refresh_token')}
-                onCloseHint={() =>
-                  setActiveHint((prev) => (prev === 'refresh_token' ? '' : prev))
+                onToggleHint={(hintKey) =>
+                  setActiveHint((prev) => (prev === hintKey ? '' : hintKey))
                 }
               />
               <input
@@ -291,6 +304,35 @@ function IntegrationSection({
             </button>
           </div>
         </form>
+      )}
+      {activeHintContent && (
+        <div
+          className="integration-help-dialog-overlay"
+          onClick={() => setActiveHint('')}
+        >
+          <div
+            className="integration-help-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="integration-help-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="integration-help-dialog__header">
+              <p id="integration-help-title" className="integration-help-dialog__title">
+                {activeHintContent.title}
+              </p>
+              <button
+                type="button"
+                className="integration-help-dialog__close"
+                onClick={() => setActiveHint('')}
+                aria-label="Закрыть подсказку"
+              >
+                ×
+              </button>
+            </div>
+            <p className="integration-help-dialog__text">{activeHintContent.text}</p>
+          </div>
+        </div>
       )}
 
       {showList && (

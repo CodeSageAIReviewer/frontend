@@ -62,13 +62,13 @@ function LandingPage() {
     <main className="landing-page">
       <section className="landing-layout">
         <header className="landing-hero ui-panel">
-          <div className="landing-hero__main">
-            <p className="landing-eyebrow">CodeSage Platform</p>
-            <h1>Контроль качества кода перед merge без ручной рутины</h1>
-            <p className="landing-subtitle">
+          <div className="landing-hero__main page-header">
+            <p className="landing-eyebrow page-header__eyebrow">CodeSage Platform</p>
+            <h1 className="page-header__title">Контроль качества кода перед merge без ручной рутины</h1>
+            <p className="landing-subtitle page-header__description">
               Рабочая поверхность для запуска AI-ревью, приоритизации замечаний и принятия решений по PR/MR.
             </p>
-            <div className="landing-hero__actions">
+            <div className="landing-hero__actions page-header__actions">
               <Link className="ui-btn ui-btn--primary landing-cta" to={primaryAction.to}>
                 {primaryAction.label}
               </Link>

@@ -301,7 +301,7 @@
   background: var(--color-bg-elevated);
   color: var(--color-text-muted);
   font: 600 11px/1 var(--font-body);
-  cursor: help;
+  cursor: pointer;
   padding: 0;
   outline: none;
 }
@@ -311,7 +311,18 @@
   outline-offset: 2px;
 }
 
-.llm-help-popover {
+.llm-help-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 139;
+  background: color-mix(in oklab, var(--color-bg-overlay) 60%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+.llm-help-dialog {
   position: fixed;
   left: 50%;
   top: 50%;
@@ -323,16 +334,43 @@
   box-shadow: var(--shadow-3);
   padding: var(--space-4);
   z-index: 140;
-  pointer-events: none;
 }
 
-.llm-help-popover__title {
+.llm-help-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.llm-help-dialog__title {
   margin: 0;
   color: var(--color-text-primary);
   font: 600 16px/1.3 var(--font-display);
 }
 
-.llm-help-popover__text {
+.llm-help-dialog__close {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-1);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font: 500 18px/1 var(--font-body);
+}
+
+.llm-help-dialog__close:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+}
+
+.llm-help-dialog__close:focus-visible {
+  outline: 3px solid color-mix(in oklab, var(--color-accent) 24%, transparent);
+  outline-offset: 2px;
+}
+
+.llm-help-dialog__text {
   margin: var(--space-2) 0 0;
   color: var(--color-text-secondary);
   font: var(--type-body);
@@ -405,5 +443,17 @@
   .llm-modal__header {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-content,
+  .site-navbar,
+  .modal-overlay,
+  .modal-window.llm-modal,
+  .llm-help-dialog,
+  .llm-help-dialog__close {
+    transition: none !important;
+    animation: none !important;
   }
 }

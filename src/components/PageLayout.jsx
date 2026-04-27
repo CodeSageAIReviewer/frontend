@@ -51,8 +51,7 @@ function FieldLabelWithHint({
   label,
   hintKey,
   activeHintKey,
-  onOpenHint,
-  onCloseHint,
+  onToggleHint,
 }) {
   return (
     <span className="llm-field-label">
@@ -61,12 +60,9 @@ function FieldLabelWithHint({
         type="button"
         className="llm-tooltip"
         aria-label={`Показать подсказку: ${label}`}
+        aria-haspopup="dialog"
         aria-expanded={activeHintKey === hintKey}
-        onMouseEnter={() => onOpenHint(hintKey)}
-        onMouseLeave={onCloseHint}
-        onFocus={() => onOpenHint(hintKey)}
-        onBlur={onCloseHint}
-        onClick={() => onOpenHint(hintKey)}
+        onClick={() => onToggleHint(hintKey)}
       >
         ?
       </button>
@@ -146,7 +142,11 @@ function PageLayout({ children }) {
 
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
-        setIsProvidersOpen(false)
+        if (activeHelpHint) {
+          setActiveHelpHint('')
+          return
+        }
+        handleCloseProviders()
       }
     }
 
@@ -155,7 +155,7 @@ function PageLayout({ children }) {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [fetchIntegrations, isProvidersOpen])
+  }, [activeHelpHint, fetchIntegrations, handleCloseProviders, isProvidersOpen])
 
   const providerLabelMap = useMemo(() => {
     const map = {}
@@ -542,9 +542,8 @@ function PageLayout({ children }) {
                       label="Модель"
                       hintKey="model"
                       activeHintKey={activeHelpHint}
-                      onOpenHint={setActiveHelpHint}
-                      onCloseHint={() =>
-                        setActiveHelpHint((prev) => (prev === 'model' ? '' : prev))
+                      onToggleHint={(hintKey) =>
+                        setActiveHelpHint((prev) => (prev === hintKey ? '' : hintKey))
                       }
                     />
                     <input
@@ -562,9 +561,8 @@ function PageLayout({ children }) {
                       label="Base URL"
                       hintKey="base_url"
                       activeHintKey={activeHelpHint}
-                      onOpenHint={setActiveHelpHint}
-                      onCloseHint={() =>
-                        setActiveHelpHint((prev) => (prev === 'base_url' ? '' : prev))
+                      onToggleHint={(hintKey) =>
+                        setActiveHelpHint((prev) => (prev === hintKey ? '' : hintKey))
                       }
                     />
                     <input
@@ -583,9 +581,8 @@ function PageLayout({ children }) {
                       label={editingIntegration ? 'Новый API ключ' : 'API ключ'}
                       hintKey="api_key"
                       activeHintKey={activeHelpHint}
-                      onOpenHint={setActiveHelpHint}
-                      onCloseHint={() =>
-                        setActiveHelpHint((prev) => (prev === 'api_key' ? '' : prev))
+                      onToggleHint={(hintKey) =>
+                        setActiveHelpHint((prev) => (prev === hintKey ? '' : hintKey))
                       }
                     />
                     <input
@@ -631,13 +628,34 @@ function PageLayout({ children }) {
                   </div>
                 </form>
                 {activeHelpHint && LLM_FIELD_HINTS[activeHelpHint] && (
-                  <div className="llm-help-popover" role="tooltip" aria-live="polite">
-                    <p className="llm-help-popover__title">
-                      {LLM_FIELD_HINTS[activeHelpHint].title}
-                    </p>
-                    <p className="llm-help-popover__text">
-                      {LLM_FIELD_HINTS[activeHelpHint].text}
-                    </p>
+                  <div
+                    className="llm-help-dialog-overlay"
+                    onClick={() => setActiveHelpHint('')}
+                  >
+                    <div
+                      className="llm-help-dialog"
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="llm-help-title"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <div className="llm-help-dialog__header">
+                        <p id="llm-help-title" className="llm-help-dialog__title">
+                          {LLM_FIELD_HINTS[activeHelpHint].title}
+                        </p>
+                        <button
+                          type="button"
+                          className="llm-help-dialog__close"
+                          onClick={() => setActiveHelpHint('')}
+                          aria-label="Закрыть подсказку"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <p className="llm-help-dialog__text">
+                        {LLM_FIELD_HINTS[activeHelpHint].text}
+                      </p>
+                    </div>
                   </div>
                 )}
               </section>

@@ -30,31 +30,20 @@
 }
 
 .landing-eyebrow {
-  margin: 0;
-  color: var(--color-text-muted);
-  font: var(--type-caption);
   letter-spacing: 0.18em;
-  text-transform: uppercase;
 }
 
-.landing-hero h1 {
-  margin: 0;
-  color: var(--color-text-primary);
+.landing-hero .page-header__title {
   font: clamp(700 2rem/1.13 var(--font-display), 3.2vw, var(--type-h1));
   max-width: 20ch;
 }
 
 .landing-subtitle {
-  margin: 0;
-  color: var(--color-text-secondary);
   font: var(--type-body);
   max-width: 66ch;
 }
 
 .landing-hero__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
   margin-top: var(--space-1);
 }
 

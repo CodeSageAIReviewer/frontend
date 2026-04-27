@@ -31,6 +31,30 @@ const initialIntegrationForm = {
   refresh_token: '',
 }
 
+const WORKSPACE_UI_STORAGE_KEYS = {
+  openIntegrations: 'codesage.workspace.sidebar.openIntegrations',
+  openRepos: 'codesage.workspace.sidebar.openRepos',
+}
+
+const readStoredMap = (key) => {
+  if (typeof window === 'undefined') {
+    return {}
+  }
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) {
+      return {}
+    }
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {}
+    }
+    return parsed
+  } catch {
+    return {}
+  }
+}
+
 function WorkspacePage() {
   const [workspaces, setWorkspaces] = useState([])
   const [workspacesLoading, setWorkspacesLoading] = useState(false)
@@ -66,8 +90,12 @@ function WorkspacePage() {
   const [repositoryDeleteError, setRepositoryDeleteError] = useState('')
   const [isDeletingRepository, setIsDeletingRepository] = useState(false)
   const [activeNode, setActiveNode] = useState({ type: 'workspace', id: null, workspaceId: null, label: '' })
-  const [openIntegrations, setOpenIntegrations] = useState({})
-  const [openRepos, setOpenRepos] = useState({})
+  const [openIntegrations, setOpenIntegrations] = useState(() =>
+    readStoredMap(WORKSPACE_UI_STORAGE_KEYS.openIntegrations),
+  )
+  const [openRepos, setOpenRepos] = useState(() =>
+    readStoredMap(WORKSPACE_UI_STORAGE_KEYS.openRepos),
+  )
   const [integrations, setIntegrations] = useState([])
   const [integrationsLoading, setIntegrationsLoading] = useState(false)
   const [integrationsError, setIntegrationsError] = useState('')
@@ -90,6 +118,26 @@ function WorkspacePage() {
     () => workspaces.find((workspace) => workspace.id === selectedWorkspaceId),
     [workspaces, selectedWorkspaceId],
   )
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    window.localStorage.setItem(
+      WORKSPACE_UI_STORAGE_KEYS.openIntegrations,
+      JSON.stringify(openIntegrations),
+    )
+  }, [openIntegrations])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    window.localStorage.setItem(
+      WORKSPACE_UI_STORAGE_KEYS.openRepos,
+      JSON.stringify(openRepos),
+    )
+  }, [openRepos])
 
   const activeIntegration = useMemo(() => {
     if (!activeNode) {
@@ -296,7 +344,10 @@ function WorkspacePage() {
       label: workspace.name,
     })
     setCreatingWorkspace(false)
-    setOpenIntegrations({ [workspace.id]: true })
+    setOpenIntegrations((prev) => ({
+      ...prev,
+      [workspace.id]: true,
+    }))
     setIsAddingIntegration(false)
   }
 
@@ -691,6 +742,7 @@ function WorkspacePage() {
 
   const toggleIntegrations = (workspaceId) => {
     setOpenIntegrations((prev) => ({
+      ...prev,
       [workspaceId]: !prev[workspaceId],
     }))
   }
